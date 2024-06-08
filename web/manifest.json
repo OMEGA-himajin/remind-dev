@@ -1,6 +1,6 @@
 {
-    "name": "flutter_demo",
-    "short_name": "flutter_demo",
+    "name": "remind_dev",
+    "short_name": "remind_dev",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
@@ -31,13 +31,5 @@
             "type": "image/png",
             "purpose": "maskable"
         }
-    ],
-    "family": "MaterialIcons",
-    "fonts": [
-      {
-        "asset": "https://fonts.gstatic.com/s/materialicons/v42/flUhRq6tzZclQEJ-Vdg-IuiaDsNcIhQ8tQ.woff2"
-      }
     ]
 }
-  
-  
