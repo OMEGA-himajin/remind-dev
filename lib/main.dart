@@ -1,10 +1,21 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'screens/home.dart';
 import 'screens/items.dart';
 import 'screens/schedule.dart';
 import 'screens/timetable.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  
+  WidgetsFlutterBinding.ensureInitialized();
+  // Firebase を初期化
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  // Firebase が正常に初期化されたときにログを出力
+  print('Firebase initialized successfully');
+  // アプリを起動
   runApp(const MyApp());
 }
 
@@ -56,10 +67,8 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
           items: const <BottomNavigationBarItem>[
             BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'ホーム'),
             BottomNavigationBarItem(icon: Icon(Icons.table_view), label: '時間割'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.library_books), label: '持ち物'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.calendar_month), label: 'スケジュール'),
+            BottomNavigationBarItem(icon: Icon(Icons.library_books), label: '持ち物'),
+            BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'スケジュール'),
           ],
           type: BottomNavigationBarType.fixed,
         ));
