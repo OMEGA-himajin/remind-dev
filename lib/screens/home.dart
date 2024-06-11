@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
+
 String? _errorMessage;
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
@@ -111,56 +113,57 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             ElevatedButton(
-                child: const Text('ユーザ登録'),
+              child: const Text('ユーザ登録'),
+              onPressed: () async {
+                try {
+                  final UserCredential userCredential = await FirebaseAuth
+                      .instance
+                      .createUserWithEmailAndPassword(
+                    email: _email,
+                    password: _password,
+                  );
+                  final User? user = userCredential.user;
+                  if (user != null) {
+                    print("ユーザ登録しました ${user.email} , ${user.uid}");
+                  }
+                } catch (e) {
+                  setState(() {
+                    _errorMessage = e.toString(); // エラーメッセージを保持
+                  });
+                  print(e);
+                }
+              },
+            ),
+            ElevatedButton(
+                child: const Text('パスワードリセット'),
                 onPressed: () async {
                   try {
-                    final User? user = (await FirebaseAuth.instance
-                            .createUserWithEmailAndPassword(
-                                email: _email, password: _password))
-                        .user;
-                    if (user != null)
-                      print("ユーザ登録しました ${user.email} , ${user.uid}");
+                    await FirebaseAuth.instance
+                        .sendPasswordResetEmail(email: _email);
+                    print("パスワードリセット用のメールを送信しました");
                   } catch (e) {
-                    setState(() {
-                    _errorMessage = e.toString(); // エラーメッセージを保持
-                    _error_log();
-                  });
                     print(e);
+                    setState(() {
+                      _errorMessage = e.toString(); // エラーメッセージを保持
+                      _error_log();
+                    });
                   }
-                },
-              ),
-              ElevatedButton(
-                  child: const Text('パスワードリセット'),
-                  onPressed: () async {
-                    try {
-                      await FirebaseAuth.instance
-                          .sendPasswordResetEmail(email: _email);
-                      print("パスワードリセット用のメールを送信しました");
-                    } catch (e) {
-                      print(e);
-                      setState(() {
-                    _errorMessage = e.toString();// エラーメッセージを保持
-                    _error_log();
-                  });
-                    }
-                  }),
-                  _error_log()
+                }),
+            _error_log()
           ],
         ),
       ),
     );
   }
 
-Widget _error_log(){
-  if(_errorMessage!=null)
-  {
-    
-    return Text(_errorMessage.toString(),style: TextStyle(color: Colors.red));
+  Widget _error_log() {
+    if (_errorMessage != null) {
+      return Text(_errorMessage.toString(),
+          style: TextStyle(color: Colors.red));
+    }
+    // エラーメッセージが null の場合は何も返さない
+    return SizedBox(); // または適切な空のウィジェットを返す
   }
-  // エラーメッセージが null の場合は何も返さない
-  return SizedBox(); // または適切な空のウィジェットを返す
-}
-
 
   Widget _buildUserInfo() {
     return Center(

@@ -11,7 +11,13 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   bool _saturday = true;
   bool _sunday = true;
   int times = 6;
-  String _selectedValue = ''; // 選択された値を保持する変数  
+  List<String> mon = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
+  List<String> tue = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
+  List<String> wed = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
+  List<String> thu = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
+  List<String> fri = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
+  List<String> sat = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
+  List<String> sun = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
 
   @override
   Widget build(BuildContext context) {
@@ -31,16 +37,17 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 onChanged: (value) {
                   // 入力が数字のみかチェック
                   if (RegExp(r'^[0-9]+$').hasMatch(value)) {
+                    if(int.parse(value)<=10&&int.parse(value)>=1){
                     // 数字の場合、"times"変数に格納
                     setState(() {
                       times = int.parse(value);
-                    });
+                    });}
                   }
                 },
                 keyboardType: TextInputType.number, // 数字のみを入力可能にする
                 decoration: InputDecoration(
                   border: OutlineInputBorder(), // 四角形の箱
-                  hintText: 'Enter a number', // 入力フィールドのプレースホルダーテキスト
+                  hintText: '時間数を入力', // 入力フィールドのプレースホルダーテキスト
                 ),
               ),
               ListTile(
@@ -141,23 +148,23 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text('MON$i')),
+                      child: Center(child: Text(mon[i-1])),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text('TUE$i')),
+                      child: Center(child: Text(tue[i-1])),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text('WED$i')),
+                      child: Center(child: Text(wed[i-1])),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text('THU$i')),
+                      child: Center(child: Text(thu[i-1])),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text('FRI$i')),
+                      child: Center(child: Text(fri[i-1])),
                     ),
                     if (_saturday)
                       Padding(
@@ -166,7 +173,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                           onTap: () {
                             _showInputDialog(context);
                           },
-                          child: Center(child: Text('SAT$i')),
+                          child: Center(child: Text(sat[i-1])),
                         ),
                       ),
                     if (_sunday)
@@ -176,7 +183,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                           onTap: () {
                             _showInputDialog(context);
                           },
-                          child: Center(child: Text('SUN$i')),
+                          child: Center(child: Text(sun[i-1])),
                         ),
                       ),
                   ],
@@ -196,7 +203,6 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
           title: const Text('値を入力'),
           content: TextField(
             onChanged: (value) {
-              _selectedValue = value;
             },
             decoration: const InputDecoration(
               hintText: '値を入力してください',
