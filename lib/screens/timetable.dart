@@ -47,7 +47,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 keyboardType: TextInputType.number, // 数字のみを入力可能にする
                 decoration: InputDecoration(
                   border: OutlineInputBorder(), // 四角形の箱
-                  hintText: '時間数を入力', // 入力フィールドのプレースホルダーテキスト
+                  hintText: '時間数を入力(1-10まで)', // 入力フィールドのプレースホルダーテキスト
                 ),
               ),
               ListTile(
