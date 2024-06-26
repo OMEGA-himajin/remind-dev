@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -12,20 +12,21 @@ class TimeTableScreen extends StatefulWidget {
 }
 
 class _TimeTableScreenState extends State<TimeTableScreen> {
-  late Map<String, dynamic> data;
-  bool _saturday = true; // 初期値を設定
-  bool _sunday = true; // 初期値を設定
+  late Map<String, dynamic> data = {};
+  bool _saturday = true;
+  bool _sunday = true;
   int times = 6;
 
-  List<String> mon = ['', '', '', '', '', '', '', '', '', ''];
-  List<String> tue = ['', '', '', '', '', '', '', '', '', ''];
-  List<String> wed = ['', '', '', '', '', '', '', '', '', ''];
-  List<String> thu = ['', '', '', '', '', '', '', '', '', ''];
-  List<String> fri = ['', '', '', '', '', '', '', '', '', ''];
-  List<String> sat = ['', '', '', '', '', '', '', '', '', ''];
-  List<String> sun = ['', '', '', '', '', '', '', '', '', ''];
+  List<String> mon = List.filled(10, '');
+  List<String> tue = List.filled(10, '');
+  List<String> wed = List.filled(10, '');
+  List<String> thu = List.filled(10, '');
+  List<String> fri = List.filled(10, '');
+  List<String> sat = List.filled(10, '');
+  List<String> sun = List.filled(10, '');
+  List<String> subjects = [''];
 
-  late Map<String, dynamic> week;
+  late Map<String, dynamic> week = {};
 
   @override
   void initState() {
@@ -50,16 +51,18 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
 
           setState(() {
             data = jsonData;
-            times = data['times'];
+            times = data['times'] ?? 6;
             _saturday = data['enable_sat'] ?? true;
             _sunday = data['enable_sun'] ?? true;
-            mon = List<String>.from(data['mon']);
-            tue = List<String>.from(data['tue']);
-            wed = List<String>.from(data['wed']);
-            thu = List<String>.from(data['thu']);
-            fri = List<String>.from(data['fri']);
-            sat = List<String>.from(data['sat']);
-            sun = List<String>.from(data['sun']);
+            mon = List<String>.from(data['mon'] ?? List.filled(10, ''));
+            tue = List<String>.from(data['tue'] ?? List.filled(10, ''));
+            wed = List<String>.from(data['wed'] ?? List.filled(10, ''));
+            thu = List<String>.from(data['thu'] ?? List.filled(10, ''));
+            fri = List<String>.from(data['fri'] ?? List.filled(10, ''));
+            sat = List<String>.from(data['sat'] ?? List.filled(10, ''));
+            sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
+            subjects = List<String>.from(
+                data['sub']?.map((subject) => subject.toString()) ?? []);
           });
         }
       } catch (e) {
@@ -87,6 +90,8 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               onChanged: (value) {
                 setState(() {
                   times = value!;
+                  _makeJson();
+                  _saveToFirestore();
                 });
               },
               items: List.generate(
@@ -110,13 +115,15 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               elevation: 16,
               hint: const Text(
                 '時間数を選択してください',
-                style: TextStyle(
-                    fontSize: 16, color: Colors.black),
+                style: TextStyle(fontSize: 16, color: Colors.black),
               ),
             ),
-            const ListTile(
-              title: Text("教科の追加"),
-              trailing: Icon(Icons.arrow_forward),
+            ListTile(
+              title: const Text("教科の追加"),
+              trailing: const Icon(Icons.add),
+              onTap: () {
+                _showAddSubjectDialog(context);
+              },
             ),
             SwitchListTile(
               title: const Text('土曜日を表示する'),
@@ -124,6 +131,8 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               onChanged: (bool value) {
                 setState(() {
                   _saturday = value;
+                  _makeJson();
+                  _saveToFirestore();
                 });
               },
             ),
@@ -133,15 +142,17 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               onChanged: (bool value) {
                 setState(() {
                   _sunday = value;
+                  _makeJson();
+                  _saveToFirestore();
                 });
               },
             ),
             TextButton(
               onPressed: () async {
-                _makejson();
-                await _saveToFirestore();
+                _makeJson();
+                _saveToFirestore();
               },
-              child: const Text('click here'),
+              child: const Text('時間割を保存'),
             ),
           ],
         ),
@@ -219,7 +230,8 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     );
   }
 
-  Widget _buildTableCell(BuildContext context, String day, List<String> list, int i) {
+  Widget _buildTableCell(
+      BuildContext context, String day, List<String> list, int i) {
     return GestureDetector(
       onTap: () {
         _showInputDialog(context, day, i - 1);
@@ -237,7 +249,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     );
   }
 
-  void _makejson() {
+  void _makeJson() {
     week = {
       "times": times,
       "enable_sat": _saturday,
@@ -249,10 +261,11 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       "fri": fri,
       "sat": sat,
       "sun": sun,
+      "sub": subjects,
     };
   }
 
-  Future<void> _saveToFirestore() async {
+  void _saveToFirestore() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
@@ -267,59 +280,286 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     }
   }
 
-  Future<void> _showInputDialog(BuildContext context, String day, int index) async {
-    TextEditingController textEditingController = TextEditingController();
+  void _showInputDialog(BuildContext context, String day, int index) async {
+    String selectedSubject = '';
 
     await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('教科を入力してください'),
-          content: TextField(
-            controller: textEditingController,
-            decoration: const InputDecoration(hintText: "教科名"),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('キャンセル'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text('保存'),
-              onPressed: () {
-                setState(() {
-                  switch (day) {
-                    case 'mon':
-                      mon[index] = textEditingController.text;
-                      break;
-                    case 'tue':
-                      tue[index] = textEditingController.text;
-                      break;
-                    case 'wed':
-                      wed[index] = textEditingController.text;
-                      break;
-                    case 'thu':
-                      thu[index] = textEditingController.text;
-                      break;
-                    case 'fri':
-                      fri[index] = textEditingController.text;
-                      break;
-                    case 'sat':
-                      sat[index] = textEditingController.text;
-                      break;
-                    case 'sun':
-                      sun[index] = textEditingController.text;
-                      break;
-                  }
-                });
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('教科を選択してください'),
+              contentPadding: EdgeInsets.fromLTRB(24, 16, 24, 0),
+              content: Container(
+                width: double.infinity,
+                height: 150,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButton<String>(
+                        value: selectedSubject,
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              selectedSubject = newValue;
+                            });
+                          }
+                        },
+                        items: _buildDropdownMenuItems(),
+                        isExpanded: true,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.black,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: <Widget>[
+                          TextButton(
+                            child: const Text('キャンセル'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                          TextButton(
+                            child: const Text('保存'),
+                            onPressed: () {
+                              Navigator.of(context).pop(selectedSubject);
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
-    );
+    ).then((value) {
+      if (value != null) {
+        setState(() {
+          switch (day) {
+            case 'mon':
+              mon[index] = value;
+              break;
+            case 'tue':
+              tue[index] = value;
+              break;
+            case 'wed':
+              wed[index] = value;
+              break;
+            case 'thu':
+              thu[index] = value;
+              break;
+            case 'fri':
+              fri[index] = value;
+              break;
+            case 'sat':
+              sat[index] = value;
+              break;
+            case 'sun':
+              sun[index] = value;
+              break;
+          }
+          _makeJson();
+          _saveToFirestore();
+        });
+      }
+    });
+  }
+
+  List<DropdownMenuItem<String>> _buildDropdownMenuItems() {
+    subjects = List<String>.from(data['sub'] ?? []);
+
+    if (!subjects.contains('')) {
+      subjects.insert(0, '');
+    }
+
+    Set<String> uniqueSubjects = subjects.toSet();
+
+    return uniqueSubjects.map((String subject) {
+      return DropdownMenuItem<String>(
+        value: subject,
+        child: Container(
+          width: double.infinity,
+          child: Text(
+            subject,
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  void _showAddSubjectDialog(BuildContext context) async {
+  TextEditingController textEditingController = TextEditingController();
+
+  await showDialog<String>(
+    context: context,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('教科を追加'),
+            content: SingleChildScrollView(
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 400,
+                    width: 300,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: subjects.length,
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(subjects[index]),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete),
+                                onPressed: () {
+                                  setState(() {
+                                    subjects.removeAt(index);
+                                    _makeJson();
+                                    _saveToFirestore();
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            _addSubjectToDay(
+                              DateTime.now().weekday,
+                              subjects[index],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  TextField(
+                    controller: textEditingController,
+                    decoration: const InputDecoration(
+                      hintText: "教科名を入力してください",
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('キャンセル'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: const Text('追加'),
+                onPressed: () {
+                  String subjectName = textEditingController.text;
+                  if (subjectName.isNotEmpty &&
+                      !subjects.contains(subjectName)) {
+                    setState(() {
+                      subjects.add(subjectName);
+                    });
+                    _makeJson();
+                    _saveToFirestore();
+                    textEditingController.clear();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('教科を追加しました'),
+                      ),
+                    );
+                    Navigator.of(context).pop(); // ダイアログを閉じる
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('すでに同じ名前の教科が存在するか空白です。'),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+  void _addSubjectToDay(int weekday, String subjectName) {
+    setState(() {
+      switch (weekday) {
+        case DateTime.monday:
+          mon.add(subjectName);
+          break;
+        case DateTime.tuesday:
+          tue.add(subjectName);
+          break;
+        case DateTime.wednesday:
+          wed.add(subjectName);
+          break;
+        case DateTime.thursday:
+          thu.add(subjectName);
+          break;
+        case DateTime.friday:
+          fri.add(subjectName);
+          break;
+        case DateTime.saturday:
+          sat.add(subjectName);
+          break;
+        case DateTime.sunday:
+          sun.add(subjectName);
+          break;
+      }
+      _makeJson();
+      _saveToFirestore();
+    });
+  }
+
+  Future<bool> _checkIfSubjectExists(String subjectName) async {
+    var user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      var query = await FirebaseFirestore.instance
+          .collection('subjects')
+          .doc(user.uid)
+          .collection('subjects')
+          .where('name', isEqualTo: subjectName)
+          .get();
+      return query.docs.isEmpty;
+    }
+    return true; // ユーザーがログインしていない場合は追加を許可する
+  }
+
+  void _deleteSubject(String subjectName) async {
+    try {
+      var user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('subjects')
+            .doc(user.uid)
+            .collection('subjects')
+            .where('name', isEqualTo: subjectName)
+            .get()
+            .then((snapshot) {
+          for (DocumentSnapshot doc in snapshot.docs) {
+            doc.reference.delete();
+          }
+        });
+        _makeJson();
+        _saveToFirestore();
+      }
+    } catch (e) {
+      print('Failed to delete subject: $e');
+    }
   }
 }
