@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -16,7 +17,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   bool _sunday = true; // 初期値を設定
   int times = 6;
 
-  List<String> mon = ['hoge', '', '', '', '', '', '', '', '', ''];
+  List<String> mon = ['', '', '', '', '', '', '', '', '', ''];
   List<String> tue = ['', '', '', '', '', '', '', '', '', ''];
   List<String> wed = ['', '', '', '', '', '', '', '', '', ''];
   List<String> thu = ['', '', '', '', '', '', '', '', '', ''];
@@ -29,38 +30,41 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   @override
   void initState() {
     super.initState();
-    _loadJsonData();
+    Firebase.initializeApp().then((value) {
+      _loadFirestoreData();
+    });
   }
 
-  Future<void> _loadJsonData() async {
-    // JSONファイルのパス
-    final directory = await getApplicationDocumentsDirectory();
-    String jsonFilePath = '${directory.path}/timetable.json';
+  Future<void> _loadFirestoreData() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        DocumentSnapshot document = await FirebaseFirestore.instance
+            .collection('timetables')
+            .doc(user.uid)
+            .get();
 
-    try {
-      // JSONファイルを読み込む
-      String jsonString = await File(jsonFilePath).readAsString();
+        if (document.exists) {
+          Map<String, dynamic> jsonData =
+              document.data() as Map<String, dynamic>;
 
-      // JSON文字列をMapオブジェクトに変換
-      Map<String, dynamic> jsonData = jsonDecode(jsonString);
-
-      // フィールドにデータをセット
-      setState(() {
-        data = jsonData;
-        times = data['times'];
-        _saturday = data['enable_sat'] ?? true; // デフォルト値を設定
-        _sunday = data['enable_sun'] ?? true; // デフォルト値を設定
-        mon = List<String>.from(data['mon']); // データのコピー
-        tue = List<String>.from(data['tue']);
-        wed = List<String>.from(data['wed']);
-        thu = List<String>.from(data['thu']);
-        fri = List<String>.from(data['fri']);
-        sat = List<String>.from(data['sat']);
-        sun = List<String>.from(data['sun']);
-      });
-    } catch (e) {
-      // エラーハンドリング
-      print('JSONファイルの読み込みエラー: $e');
+          setState(() {
+            data = jsonData;
+            times = data['times'];
+            _saturday = data['enable_sat'] ?? true;
+            _sunday = data['enable_sun'] ?? true;
+            mon = List<String>.from(data['mon']);
+            tue = List<String>.from(data['tue']);
+            wed = List<String>.from(data['wed']);
+            thu = List<String>.from(data['thu']);
+            fri = List<String>.from(data['fri']);
+            sat = List<String>.from(data['sat']);
+            sun = List<String>.from(data['sun']);
+          });
+        }
+      } catch (e) {
+        print('Firestoreデータの読み込みエラー: $e');
+      }
     }
   }
 
@@ -91,7 +95,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                   value: index + 1,
                   child: Text(
                     '${index + 1}時間',
-                    style: const TextStyle(fontSize: 16), // テキストの大きさを指定
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
               ),
@@ -107,7 +111,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               hint: const Text(
                 '時間数を選択してください',
                 style: TextStyle(
-                    fontSize: 16, color: Colors.black), // ヒントのテキストの大きさを指定
+                    fontSize: 16, color: Colors.black),
               ),
             ),
             const ListTile(
@@ -135,17 +139,14 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
             TextButton(
               onPressed: () async {
                 _makejson();
-                String json = jsonEncode(week);
-                await _saveJsonToFile(json);
-                print(json);
+                await _saveToFirestore();
               },
               child: const Text('click here'),
             ),
           ],
         ),
       ),
-      backgroundColor:
-          const Color.fromARGB(255, 5, 53, 8), // Scaffold全体の背景色を緑に設定
+      backgroundColor: const Color.fromARGB(255, 5, 53, 8),
       body: Center(
         child: DefaultTextStyle(
           style: const TextStyle(color: Colors.white),
@@ -192,14 +193,13 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                     ),
                 ],
               ),
-              // 動的にTableRowを生成
               for (int i = 1; i <= times; i++)
                 TableRow(
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(2.0),
                       child: SizedBox(
-                        height: 50, // 固定の高さを設定
+                        height: 50,
                         child: Center(child: Text('$i')),
                       ),
                     ),
@@ -225,8 +225,8 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
         _showInputDialog(context, day, i - 1);
       },
       child: Container(
-        height: 50, // 固定の高さを設定
-        color: Colors.transparent, // 背景色を透明に設定
+        height: 50,
+        color: Colors.transparent,
         alignment: Alignment.center,
         child: Text(
           list[i - 1],
@@ -252,14 +252,22 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     };
   }
 
-  Future<void> _saveJsonToFile(String jsonString) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/timetable.json');
-    await file.writeAsString(jsonString);
+  Future<void> _saveToFirestore() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('timetables')
+            .doc(user.uid)
+            .set(week);
+        print('Firestoreに保存されました');
+      } catch (e) {
+        print('Firestore保存エラー: $e');
+      }
+    }
   }
 
-  Future<void> _showInputDialog(
-      BuildContext context, String day, int index) async {
+  Future<void> _showInputDialog(BuildContext context, String day, int index) async {
     TextEditingController textEditingController = TextEditingController();
 
     await showDialog<String>(
