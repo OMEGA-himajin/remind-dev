@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -8,16 +11,58 @@ class TimeTableScreen extends StatefulWidget {
 }
 
 class _TimeTableScreenState extends State<TimeTableScreen> {
-  bool _saturday = true;
-  bool _sunday = true;
+  late Map<String, dynamic> data;
+  bool _saturday = true; // 初期値を設定
+  bool _sunday = true; // 初期値を設定
   int times = 6;
-  List<String> mon = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
-  List<String> tue = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
-  List<String> wed = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
-  List<String> thu = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
-  List<String> fri = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
-  List<String> sat = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
-  List<String> sun = ['国語', '数学', '数学', '数学', '数学', '数学', '', '', '', ''];
+
+  List<String> mon = ['hoge', '', '', '', '', '', '', '', '', ''];
+  List<String> tue = ['', '', '', '', '', '', '', '', '', ''];
+  List<String> wed = ['', '', '', '', '', '', '', '', '', ''];
+  List<String> thu = ['', '', '', '', '', '', '', '', '', ''];
+  List<String> fri = ['', '', '', '', '', '', '', '', '', ''];
+  List<String> sat = ['', '', '', '', '', '', '', '', '', ''];
+  List<String> sun = ['', '', '', '', '', '', '', '', '', ''];
+
+  late Map<String, dynamic> week;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadJsonData();
+  }
+
+  Future<void> _loadJsonData() async {
+    // JSONファイルのパス
+    final directory = await getApplicationDocumentsDirectory();
+    String jsonFilePath = '${directory.path}/timetable.json';
+
+    try {
+      // JSONファイルを読み込む
+      String jsonString = await File(jsonFilePath).readAsString();
+
+      // JSON文字列をMapオブジェクトに変換
+      Map<String, dynamic> jsonData = jsonDecode(jsonString);
+
+      // フィールドにデータをセット
+      setState(() {
+        data = jsonData;
+        times = data['times'];
+        _saturday = data['enable_sat'] ?? true; // デフォルト値を設定
+        _sunday = data['enable_sun'] ?? true; // デフォルト値を設定
+        mon = List<String>.from(data['mon']); // データのコピー
+        tue = List<String>.from(data['tue']);
+        wed = List<String>.from(data['wed']);
+        thu = List<String>.from(data['thu']);
+        fri = List<String>.from(data['fri']);
+        sat = List<String>.from(data['sat']);
+        sun = List<String>.from(data['sun']);
+      });
+    } catch (e) {
+      // エラーハンドリング
+      print('JSONファイルの読み込みエラー: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,53 +72,76 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       ),
       drawer: Drawer(
         elevation: 0,
-        child: Container(
-          child: ListView(
-            children: <Widget>[
-              DrawerHeader(
-                child: const Text('Drawer Header'),
-              ),
-              TextField(
-                onChanged: (value) {
-                  // 入力が数字のみかチェック
-                  if (RegExp(r'^[0-9]+$').hasMatch(value)) {
-                    if(int.parse(value)<=10&&int.parse(value)>=1){
-                    // 数字の場合、"times"変数に格納
-                    setState(() {
-                      times = int.parse(value);
-                    });}
-                  }
-                },
-                keyboardType: TextInputType.number, // 数字のみを入力可能にする
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(), // 四角形の箱
-                  hintText: '時間数を入力(1-10まで)', // 入力フィールドのプレースホルダーテキスト
+        child: ListView(
+          children: <Widget>[
+            const DrawerHeader(
+              child: Text('Drawer Header'),
+            ),
+            const Text('時間数を選択してください'),
+            DropdownButton<int>(
+              value: times,
+              onChanged: (value) {
+                setState(() {
+                  times = value!;
+                });
+              },
+              items: List.generate(
+                10,
+                (index) => DropdownMenuItem<int>(
+                  value: index + 1,
+                  child: Text(
+                    '${index + 1}時間',
+                    style: const TextStyle(fontSize: 16), // テキストの大きさを指定
+                  ),
                 ),
               ),
-              ListTile(
-                title: const Text("教科の追加"),
-                trailing: const Icon(Icons.arrow_forward),
+              isExpanded: true,
+              underline: Container(
+                height: 2,
+                color: Colors.black,
               ),
-              SwitchListTile(
-                title: const Text('土曜日を表示する'),
-                value: _saturday,
-                onChanged: (bool value) {
-                  setState(() {
-                    _saturday = value;
-                  });
-                },
+              dropdownColor: Colors.white,
+              style: const TextStyle(color: Colors.black),
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+              elevation: 16,
+              hint: const Text(
+                '時間数を選択してください',
+                style: TextStyle(
+                    fontSize: 16, color: Colors.black), // ヒントのテキストの大きさを指定
               ),
-              SwitchListTile(
-                title: const Text('日曜日を表示する'),
-                value: _sunday,
-                onChanged: (bool value) {
-                  setState(() {
-                    _sunday = value;
-                  });
-                },
-              ),
-            ],
-          ),
+            ),
+            const ListTile(
+              title: Text("教科の追加"),
+              trailing: Icon(Icons.arrow_forward),
+            ),
+            SwitchListTile(
+              title: const Text('土曜日を表示する'),
+              value: _saturday,
+              onChanged: (bool value) {
+                setState(() {
+                  _saturday = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: const Text('日曜日を表示する'),
+              value: _sunday,
+              onChanged: (bool value) {
+                setState(() {
+                  _sunday = value;
+                });
+              },
+            ),
+            TextButton(
+              onPressed: () async {
+                _makejson();
+                String json = jsonEncode(week);
+                await _saveJsonToFile(json);
+                print(json);
+              },
+              child: const Text('click here'),
+            ),
+          ],
         ),
       ),
       backgroundColor:
@@ -86,52 +154,41 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
             defaultColumnWidth: const FlexColumnWidth(),
             columnWidths: const {0: FixedColumnWidth(50.0)},
             children: [
-              // ヘッダー行を動的に作成
               TableRow(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
                     child: Text(' '),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
                     child: Text('月'),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
                     child: Text('火'),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
                     child: Text('水'),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
                     child: Text('木'),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
                     child: Text('金'),
                   ),
                   if (_saturday)
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          _showInputDialog(context);
-                        },
-                        child: Text('土'),
-                      ),
+                    const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text('土'),
                     ),
                   if (_sunday)
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          _showInputDialog(context);
-                        },
-                        child: Text('日'),
-                      ),
+                    const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text('日'),
                     ),
                 ],
               ),
@@ -146,46 +203,13 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                         child: Center(child: Text('$i')),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text(mon[i-1])),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text(tue[i-1])),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text(wed[i-1])),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text(thu[i-1])),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Center(child: Text(fri[i-1])),
-                    ),
-                    if (_saturday)
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: GestureDetector(
-                          onTap: () {
-                            _showInputDialog(context);
-                          },
-                          child: Center(child: Text(sat[i-1])),
-                        ),
-                      ),
-                    if (_sunday)
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: GestureDetector(
-                          onTap: () {
-                            _showInputDialog(context);
-                          },
-                          child: Center(child: Text(sun[i-1])),
-                        ),
-                      ),
+                    _buildTableCell(context, 'mon', mon, i),
+                    _buildTableCell(context, 'tue', tue, i),
+                    _buildTableCell(context, 'wed', wed, i),
+                    _buildTableCell(context, 'thu', thu, i),
+                    _buildTableCell(context, 'fri', fri, i),
+                    if (_saturday) _buildTableCell(context, 'sat', sat, i),
+                    if (_sunday) _buildTableCell(context, 'sun', sun, i),
                   ],
                 ),
             ],
@@ -195,36 +219,99 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     );
   }
 
-  void _showInputDialog(BuildContext context) {
-    showDialog(
+  Widget _buildTableCell(BuildContext context, String day, List<String> list, int i) {
+    return GestureDetector(
+      onTap: () {
+        _showInputDialog(context, day, i - 1);
+      },
+      child: Container(
+        height: 50, // 固定の高さを設定
+        color: Colors.transparent, // 背景色を透明に設定
+        alignment: Alignment.center,
+        child: Text(
+          list[i - 1],
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  void _makejson() {
+    week = {
+      "times": times,
+      "enable_sat": _saturday,
+      "enable_sun": _sunday,
+      "mon": mon,
+      "tue": tue,
+      "wed": wed,
+      "thu": thu,
+      "fri": fri,
+      "sat": sat,
+      "sun": sun,
+    };
+  }
+
+  Future<void> _saveJsonToFile(String jsonString) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/timetable.json');
+    await file.writeAsString(jsonString);
+  }
+
+  Future<void> _showInputDialog(
+      BuildContext context, String day, int index) async {
+    TextEditingController textEditingController = TextEditingController();
+
+    await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('値を入力'),
+          title: const Text('教科を入力してください'),
           content: TextField(
-            onChanged: (value) {
-            },
-            decoration: const InputDecoration(
-              hintText: '値を入力してください',
-            ),
+            controller: textEditingController,
+            decoration: const InputDecoration(hintText: "教科名"),
           ),
           actions: <Widget>[
             TextButton(
+              child: const Text('キャンセル'),
               onPressed: () {
                 Navigator.of(context).pop();
-                setState(() {}); // 表示を更新するためにsetStateを呼び出す
               },
-              child: const Text('OK'),
+            ),
+            TextButton(
+              child: const Text('保存'),
+              onPressed: () {
+                setState(() {
+                  switch (day) {
+                    case 'mon':
+                      mon[index] = textEditingController.text;
+                      break;
+                    case 'tue':
+                      tue[index] = textEditingController.text;
+                      break;
+                    case 'wed':
+                      wed[index] = textEditingController.text;
+                      break;
+                    case 'thu':
+                      thu[index] = textEditingController.text;
+                      break;
+                    case 'fri':
+                      fri[index] = textEditingController.text;
+                      break;
+                    case 'sat':
+                      sat[index] = textEditingController.text;
+                      break;
+                    case 'sun':
+                      sun[index] = textEditingController.text;
+                      break;
+                  }
+                });
+                Navigator.of(context).pop();
+              },
             ),
           ],
         );
       },
     );
   }
-}
-
-void main() {
-  runApp(const MaterialApp(
-    home: TimeTableScreen(),
-  ));
 }

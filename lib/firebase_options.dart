@@ -21,10 +21,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
@@ -44,40 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDE-jrMwLZHjFILAomkhQCPkfUEvpqDVgA',
-    appId: '1:1061200016677:web:92e5683d369d3274c116cc',
-    messagingSenderId: '1061200016677',
-    projectId: 'first-app-50e0e',
-    authDomain: 'first-app-50e0e.firebaseapp.com',
-    storageBucket: 'first-app-50e0e.appspot.com',
-    measurementId: 'G-3LX3TS07T2',
+    apiKey: 'AIzaSyCn3KW9aOfupAa8-VQT3MGBaaJqycawV3s',
+    appId: '1:379390566634:web:b20b8e94b0e96eb794f793',
+    messagingSenderId: '379390566634',
+    projectId: 'remind-dev-20a7c',
+    authDomain: 'remind-dev-20a7c.firebaseapp.com',
+    storageBucket: 'remind-dev-20a7c.appspot.com',
+    measurementId: 'G-1LMXC5TMNF',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCdACvrR7HtTL6GT9NlFG1xk6GB_c6JsFA',
-    appId: '1:1061200016677:ios:3435b457b740bf00c116cc',
-    messagingSenderId: '1061200016677',
-    projectId: 'first-app-50e0e',
-    storageBucket: 'first-app-50e0e.appspot.com',
+    apiKey: 'AIzaSyDmyNQ6nknuj4ZeIzc611ls-oMl_YbnJ5o',
+    appId: '1:379390566634:ios:5781e44b5861108994f793',
+    messagingSenderId: '379390566634',
+    projectId: 'remind-dev-20a7c',
+    storageBucket: 'remind-dev-20a7c.appspot.com',
     iosBundleId: 'com.example.remindDev',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCdACvrR7HtTL6GT9NlFG1xk6GB_c6JsFA',
-    appId: '1:1061200016677:ios:3435b457b740bf00c116cc',
-    messagingSenderId: '1061200016677',
-    projectId: 'first-app-50e0e',
-    storageBucket: 'first-app-50e0e.appspot.com',
+    apiKey: 'AIzaSyDmyNQ6nknuj4ZeIzc611ls-oMl_YbnJ5o',
+    appId: '1:379390566634:ios:5781e44b5861108994f793',
+    messagingSenderId: '379390566634',
+    projectId: 'remind-dev-20a7c',
+    storageBucket: 'remind-dev-20a7c.appspot.com',
     iosBundleId: 'com.example.remindDev',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDE-jrMwLZHjFILAomkhQCPkfUEvpqDVgA',
-    appId: '1:1061200016677:web:aa9c39a355f0367ac116cc',
-    messagingSenderId: '1061200016677',
-    projectId: 'first-app-50e0e',
-    authDomain: 'first-app-50e0e.firebaseapp.com',
-    storageBucket: 'first-app-50e0e.appspot.com',
-    measurementId: 'G-YDP2L51XHL',
+    apiKey: 'AIzaSyCn3KW9aOfupAa8-VQT3MGBaaJqycawV3s',
+    appId: '1:379390566634:web:684bc34944a521ef94f793',
+    messagingSenderId: '379390566634',
+    projectId: 'remind-dev-20a7c',
+    authDomain: 'remind-dev-20a7c.firebaseapp.com',
+    storageBucket: 'remind-dev-20a7c.appspot.com',
+    measurementId: 'G-0J1PYS232S',
   );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyA2_OMMFyL4oxgU5SAnyIYwg82ry7HR5-0',
+    appId: '1:379390566634:android:5311a5e875774ada94f793',
+    messagingSenderId: '379390566634',
+    projectId: 'remind-dev-20a7c',
+    storageBucket: 'remind-dev-20a7c.appspot.com',
+  );
+
 }
