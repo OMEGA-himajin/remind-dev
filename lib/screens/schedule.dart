@@ -11,12 +11,11 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
-  Map<DateTime, List<Map<String, String>>> _events = {};
+  Map<DateTime, List<String>> _events = {};
   late DateTime _selectedDay;
   late User _user; // Firebase User object
   late FirebaseFirestore _db; // Firestore instance
   bool _isLoading = true;
-  List<String> _subjects = []; // List to store subjects
 
   @override
   void initState() {
@@ -24,7 +23,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     _selectedDay = DateTime.now();
     _initializeFirebase(); // Initialize Firebase dependencies
     _fetchEvents(); // Fetch events from Firestore
-    _fetchSubjects(); // Fetch subjects from Firestore
   }
 
   void _initializeFirebase() {
@@ -41,9 +39,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         final data = eventDoc.data() as Map<String, dynamic>;
         data.forEach((key, value) {
           final DateTime date = DateTime.parse(key);
-          final List<Map<String, String>> events = List<Map<String, String>>.from(
-            value.map((event) => Map<String, String>.from(event))
-          );
+          final List<String> events = List<String>.from(value);
           _events[date] = events;
         });
       } else {
@@ -58,24 +54,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       setState(() {
         _isLoading = false; // Set loading to false even on error
       });
-    }
-  }
-
-  Future<void> _fetchSubjects() async {
-    // Fetch subjects from Firestore
-    try {
-      final subjectsDoc = await _db.collection('timetable').doc(_user.uid).get();
-
-      if (subjectsDoc.exists) {
-        final data = subjectsDoc.data() as Map<String, dynamic>;
-        setState(() {
-          _subjects = List<String>.from(data['subjects']);
-        });
-      } else {
-        _subjects = [];
-      }
-    } catch (error) {
-      print("Failed to fetch subjects: $error");
     }
   }
 
@@ -136,10 +114,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   child: ListView.builder(
                     itemCount: _getEventsForDay(_selectedDay).length,
                     itemBuilder: (context, index) {
-                      final event = _getEventsForDay(_selectedDay)[index];
                       return ListTile(
-                        title: Text(event['title']!),
-                        subtitle: Text(event['description']!),
+                        title: Text(_getEventsForDay(_selectedDay)[index]),
                       );
                     },
                   ),
@@ -186,7 +162,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           ),
                           padding: const EdgeInsets.all(4.0),
                           child: Text(
-                            event['title']!,
+                            event,
                             style: TextStyle(color: Colors.white),
                           ),
                         ),
@@ -200,94 +176,40 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   void _showAddEventDialog() {
-    final TextEditingController _titleController = TextEditingController();
-    final TextEditingController _descriptionController = TextEditingController();
-    String _selectedEventType = '提出課題';
-    String? _selectedSubject;
+    final TextEditingController _eventController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('予定を追加'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(hintText: 'タイトルを入力'),
-                ),
-                TextField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(hintText: '説明を入力'),
-                ),
-                DropdownButton<String>(
-                  value: _selectedEventType,
-                  items: <String>['提出課題', '行事', 'その他'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedEventType = newValue!;
-                      if (_selectedEventType != '提出課題') {
-                        _selectedSubject = null; // Reset selected subject if not an assignment
-                      }
-                    });
-                  },
-                ),
-                if (_selectedEventType == '提出課題')
-                  DropdownButton<String>(
-                    value: _selectedSubject,
-                    hint: const Text('教科を選択'),
-                    items: _subjects.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedSubject = newValue;
-                      });
-                    },
-                  ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                child: const Text('キャンセル'),
-                onPressed: () => Navigator.pop(context),
-              ),
-              TextButton(
-                child: const Text('追加'),
-                onPressed: () {
-                  if (_titleController.text.isEmpty || _descriptionController.text.isEmpty) return;
+      builder: (context) => AlertDialog(
+        title: const Text('予定を追加'),
+        content: TextField(
+          controller: _eventController,
+          decoration: const InputDecoration(hintText: '予定を入力'),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('キャンセル'),
+            onPressed: () => Navigator.pop(context),
+          ),
+          TextButton(
+            child: const Text('追加'),
+            onPressed: () {
+              if (_eventController.text.isEmpty) return;
 
-                  // Update Firestore document with new event
-                  _updateEvents({
-                    'title': _titleController.text,
-                    'description': _descriptionController.text,
-                    'type': _selectedEventType,
-                    'subject': _selectedSubject ?? '',
-                  });
+              // Update Firestore document with new event
+              _updateEvents(_eventController.text);
 
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          );
-        }
+              Navigator.pop(context);
+            },
+          ),
+        ],
       ),
     );
   }
 
-  void _updateEvents(Map<String, String> newEvent) {
+  void _updateEvents(String newEvent) {
     // Add the new event to the existing list of events for the selected day
-    List<Map<String, String>> eventsForDay = _events[_selectedDay] ?? [];
+    List<String> eventsForDay = _events[_selectedDay] ?? [];
     eventsForDay.add(newEvent);
 
     // Update Firestore document with updated events list
@@ -304,7 +226,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     });
   }
 
-  List<Map<String, String>> _getEventsForDay(DateTime day) {
+  List<String> _getEventsForDay(DateTime day) {
     return _events[day] ?? [];
   }
 }
