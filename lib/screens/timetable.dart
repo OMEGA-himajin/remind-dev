@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -31,45 +29,31 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   @override
   void initState() {
     super.initState();
-    Firebase.initializeApp().then((value) {
-      _loadFirestoreData();
-    });
+    _loadSharedPreferencesData();
   }
 
-  Future<void> _loadFirestoreData() async {
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        DocumentSnapshot document = await FirebaseFirestore.instance
-            .collection('timetables')
-            .doc(user.uid)
-            .get();
-
-        if (document.exists) {
-          Map<String, dynamic> jsonData =
-              document.data() as Map<String, dynamic>;
-
-          setState(() {
-            data = jsonData;
-            times = data['times'] ?? 6;
-            _saturday = data['enable_sat'] ?? true;
-            _sunday = data['enable_sun'] ?? true;
-            mon = List<String>.from(data['mon'] ?? List.filled(10, ''));
-            tue = List<String>.from(data['tue'] ?? List.filled(10, ''));
-            wed = List<String>.from(data['wed'] ?? List.filled(10, ''));
-            thu = List<String>.from(data['thu'] ?? List.filled(10, ''));
-            fri = List<String>.from(data['fri'] ?? List.filled(10, ''));
-            sat = List<String>.from(data['sat'] ?? List.filled(10, ''));
-            sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
-            subjects = List<String>.from(
-                data['sub']?.map((subject) => subject.toString()) ?? []);
-            subjects =
-                subjects.where((subject) => subject.trim().isNotEmpty).toList();
-          });
-        }
-      } catch (e) {
-        print('Firestoreデータの読み込みエラー: $e');
-      }
+  Future<void> _loadSharedPreferencesData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? jsonString = prefs.getString('timetable');
+    if (jsonString != null) {
+      Map<String, dynamic> jsonData = json.decode(jsonString);
+      setState(() {
+        data = jsonData;
+        times = data['times'] ?? 6;
+        _saturday = data['enable_sat'] ?? true;
+        _sunday = data['enable_sun'] ?? true;
+        mon = List<String>.from(data['mon'] ?? List.filled(10, ''));
+        tue = List<String>.from(data['tue'] ?? List.filled(10, ''));
+        wed = List<String>.from(data['wed'] ?? List.filled(10, ''));
+        thu = List<String>.from(data['thu'] ?? List.filled(10, ''));
+        fri = List<String>.from(data['fri'] ?? List.filled(10, ''));
+        sat = List<String>.from(data['sat'] ?? List.filled(10, ''));
+        sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
+        subjects = List<String>.from(
+            data['sub']?.map((subject) => subject.toString()) ?? []);
+        subjects =
+            subjects.where((subject) => subject.trim().isNotEmpty).toList();
+      });
     }
   }
 
@@ -93,7 +77,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 setState(() {
                   times = value!;
                   _makeJson();
-                  _saveToFirestore();
+                  _saveToSharedPreferences();
                 });
               },
               items: List.generate(
@@ -134,7 +118,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 setState(() {
                   _saturday = value;
                   _makeJson();
-                  _saveToFirestore();
+                  _saveToSharedPreferences();
                 });
               },
             ),
@@ -145,14 +129,14 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 setState(() {
                   _sunday = value;
                   _makeJson();
-                  _saveToFirestore();
+                  _saveToSharedPreferences();
                 });
               },
             ),
             TextButton(
               onPressed: () async {
                 _makeJson();
-                _saveToFirestore();
+                _saveToSharedPreferences();
               },
               child: const Text('時間割を保存'),
             ),
@@ -267,19 +251,11 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     };
   }
 
-  void _saveToFirestore() async {
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('timetables')
-            .doc(user.uid)
-            .set(week);
-        print('Firestoreに保存されました');
-      } catch (e) {
-        print('Firestore保存エラー: $e');
-      }
-    }
+  void _saveToSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String jsonString = json.encode(week);
+    await prefs.setString('timetable', jsonString);
+    print('Shared Preferencesに保存されました');
   }
 
   void _showInputDialog(BuildContext context, String day, int index) async {
@@ -370,7 +346,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               break;
           }
           _makeJson();
-          _saveToFirestore();
+          _saveToSharedPreferences();
         });
       }
     });
@@ -431,7 +407,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                                     setState(() {
                                       subjects.removeAt(index);
                                       _makeJson();
-                                      _saveToFirestore();
+                                      _saveToSharedPreferences();
                                     });
                                   },
                                 ),
@@ -472,7 +448,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                       setState(() {
                         subjects.add(subjectName);
                         _makeJson();
-                        _saveToFirestore();
+                        _saveToSharedPreferences();
                       });
                       textEditingController.clear();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -523,44 +499,36 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
           break;
       }
       _makeJson();
-      _saveToFirestore();
+      _saveToSharedPreferences();
     });
   }
 
   Future<bool> _checkIfSubjectExists(String subjectName) async {
-    var user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      var query = await FirebaseFirestore.instance
-          .collection('subjects')
-          .doc(user.uid)
-          .collection('subjects')
-          .where('name', isEqualTo: subjectName)
-          .get();
-      return query.docs.isEmpty;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? jsonString = prefs.getString('timetable');
+    if (jsonString != null) {
+      Map<String, dynamic> data = json.decode(jsonString);
+      List<String> existingSubjects = List<String>.from(data['sub'] ?? []);
+      return !existingSubjects.contains(subjectName);
     }
-    return true; // ユーザーがログインしていない場合は追加を許可する
+    return true;
   }
 
   void _deleteSubject(String subjectName) async {
-    try {
-      var user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('subjects')
-            .doc(user.uid)
-            .collection('subjects')
-            .where('name', isEqualTo: subjectName)
-            .get()
-            .then((snapshot) {
-          for (DocumentSnapshot doc in snapshot.docs) {
-            doc.reference.delete();
-          }
-        });
-        _makeJson();
-        _saveToFirestore();
-      }
-    } catch (e) {
-      print('Failed to delete subject: $e');
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? jsonString = prefs.getString('timetable');
+    if (jsonString != null) {
+      Map<String, dynamic> data = json.decode(jsonString);
+      List<String> existingSubjects = List<String>.from(data['sub'] ?? []);
+      existingSubjects.remove(subjectName);
+      data['sub'] = existingSubjects;
+      jsonString = json.encode(data);
+      await prefs.setString('timetable', jsonString);
+      setState(() {
+        subjects = existingSubjects;
+      });
+      _makeJson();
+      _saveToSharedPreferences();
     }
   }
 }
