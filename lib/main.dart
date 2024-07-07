@@ -15,6 +15,7 @@ void main() async {
   // Firebase が正常に初期化されたときにログを出力
   print('Firebase initialized successfully');
   // アプリを起動
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 

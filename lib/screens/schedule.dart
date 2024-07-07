@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:intl/intl.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -12,7 +14,7 @@ class ScheduleScreen extends StatefulWidget {
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
   late Map<String, dynamic> data = {};
-  Map<DateTime, List<Map<String, String>>> _events = {};
+  Map<DateTime, List<Map<String, dynamic>>> _events = {};
   late DateTime _selectedDay;
   bool _isLoading = true;
   List<String> subjects = [];
@@ -27,44 +29,39 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Future<void> _loadSharedPreferencesData() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
+    SharedPreferences prefs = await SharedPreferences.getInstance();
 
-  // Load subjects
-  String? subjectsJson = prefs.getString('timetable');
-  if (subjectsJson != null) {
-    Map<String, dynamic> jsonData = json.decode(subjectsJson);
+    String? timetableJson = prefs.getString('timetable');
+    if (timetableJson != null) {
+      Map<String, dynamic> jsonData = json.decode(timetableJson);
+      setState(() {
+        data = jsonData;
+        subjects = List<String>.from(
+            data['sub']?.map((subject) => subject.toString()) ?? []);
+      });
+    }
+
+    String? eventsJson = prefs.getString('events');
+    if (eventsJson != null) {
+      Map<String, dynamic> eventsMap = json.decode(eventsJson);
+      _events = eventsMap.map((key, value) {
+        return MapEntry(
+          DateTime.parse(key),
+          (value as List<dynamic>)
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList(),
+        );
+      });
+    }
+
     setState(() {
-      data = jsonData;
-      subjects = List<String>.from(data['sub']?.map((subject) => subject.toString()) ?? []);
+      _isLoading = false;
     });
   }
-
-  // Load events
-  String? eventsJson = prefs.getString('events');
-  if (eventsJson != null) {
-    Map<String, dynamic> eventsMap = json.decode(eventsJson);
-    _events = eventsMap.map((key, value) {
-      return MapEntry(
-        DateTime.parse(key),
-        (value as List<dynamic>)
-            .map((e) => Map<String, String>.from(e))
-            .toList(),
-      );
-    });
-  }
-
-  setState(() {
-    _isLoading = false;
-  });
-}
 
   Future<void> _saveSharedPreferencesData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // Save subjects
-    await prefs.setString('subjects', json.encode(subjects));
-
-    // Save events
     Map<String, dynamic> eventsMap = _events.map((key, value) {
       return MapEntry(key.toIso8601String(), value);
     });
@@ -129,6 +126,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                     isToday: true);
                               },
                             ),
+                            eventLoader: (day) {
+                              return _getEventsForDay(day);
+                            },
                           ),
                         ],
                       ),
@@ -176,20 +176,34 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                       ),
                                       SizedBox(height: 4.0),
                                       ..._events[_selectedDay]!.map((event) {
-                                        if (event['type'] == 'event' &&
-                                            event.containsKey('startTime') &&
-                                            event.containsKey('endTime')) {
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                                vertical: 2.0),
-                                            child: Text(
-                                              '${event['startTime']} 〜 ${event['endTime']}',
-                                              style: TextStyle(fontSize: 14.0),
-                                            ),
-                                          );
-                                        } else {
-                                          return SizedBox.shrink();
+                                        if (event['type'] == 'event') {
+                                          if (event['isAllDay'] == true) {
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 2.0),
+                                              child: Text(
+                                                '終日',
+                                                style:
+                                                    TextStyle(fontSize: 14.0),
+                                              ),
+                                            );
+                                          } else if (event
+                                                  .containsKey('startTime') &&
+                                              event.containsKey('endTime')) {
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 2.0),
+                                              child: Text(
+                                                '${event['startTime']} 〜 ${event['endTime']}',
+                                                style:
+                                                    TextStyle(fontSize: 14.0),
+                                              ),
+                                            );
+                                          }
                                         }
+                                        return SizedBox.shrink();
                                       }).toList(),
                                     ],
                                   ),
@@ -280,19 +294,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_events[day] != null)
-                  ..._events[day]!.map((event) => Padding(
+                if (_getEventsForDay(day).isNotEmpty)
+                  ..._getEventsForDay(day).map((event) => Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 2.0),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.blue : Colors.blue,
+                            color: Color(event['color'] as int),
                             borderRadius: BorderRadius.circular(4.0),
                           ),
                           padding: const EdgeInsets.all(4.0),
                           child: Text(
                             event['type'] == 'task'
                                 ? '${event['task']}'
-                                : '${event['startTime']}~${event['event']}',
+                                : event['isAllDay'] == true
+                                    ? '終日 ${event['event']}'
+                                    : '${event['startTime']}~${event['endTime']} ${event['event']}',
                             style: TextStyle(color: Colors.white, fontSize: 10),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -310,11 +326,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     _loadSharedPreferencesData();
     final TextEditingController _eventController = TextEditingController();
     final TextEditingController _contentController = TextEditingController();
-    final TextEditingController _startTimeController = TextEditingController();
-    final TextEditingController _endTimeController = TextEditingController();
+    final TextEditingController _startDateTimeController =
+        TextEditingController();
+    final TextEditingController _endDateTimeController =
+        TextEditingController();
     String selectedType = 'event';
     String selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
-    print(subjects);
+    Color selectedColor = Colors.blue;
+    DateTime startDateTime = _selectedDay;
+    DateTime endDateTime = _selectedDay.add(Duration(hours: 1));
+    bool isAllDay = false;
+
+    _startDateTimeController.text =
+        DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
+    _endDateTimeController.text =
+        DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
 
     showDialog(
       context: context,
@@ -335,10 +361,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         selectedType = value!;
                         _eventController.clear();
                         _contentController.clear();
-                        _startTimeController.clear();
-                        _endTimeController.clear();
+                        _startDateTimeController.text =
+                            DateFormat('yyyy-MM-dd HH:mm')
+                                .format(startDateTime);
+                        _endDateTimeController.text =
+                            DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
                         selectedSubject =
                             subjects.isNotEmpty ? subjects[0] : '';
+                        isAllDay = false;
                       });
                     },
                     items: [
@@ -353,6 +383,47 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ],
                   ),
                   SizedBox(height: 16.0),
+                  ListTile(
+                    title: const Text('色を選択'),
+                    trailing: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: selectedColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('色を選択'),
+                            content: SingleChildScrollView(
+                              child: ColorPicker(
+                                pickerColor: selectedColor,
+                                onColorChanged: (Color color) {
+                                  setState(() {
+                                    selectedColor = color;
+                                  });
+                                },
+                                pickerAreaHeightPercent: 0.8,
+                              ),
+                            ),
+                            actions: <Widget>[
+                              TextButton(
+                                child: const Text('OK'),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  SizedBox(height: 16.0),
                   if (selectedType == 'event') ...[
                     TextField(
                       controller: _eventController,
@@ -361,63 +432,154 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         setState(() {});
                       },
                     ),
-                    GestureDetector(
-                      onTap: () async {
-                        TimeOfDay? startTime = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.now(),
-                        );
-                        if (startTime != null) {
-                          setState(() {
-                            _startTimeController.text =
-                                '${startTime.hour}:${startTime.minute.toString().padLeft(2, '0')}';
-                          });
-                        }
-                      },
-                      child: AbsorbPointer(
-                        child: TextField(
-                          controller: _startTimeController,
-                          decoration: const InputDecoration(labelText: '開始時刻'),
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () async {
-                        TimeOfDay? endTime = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.now(),
-                        );
-                        if (endTime != null) {
-                          setState(() {
-                            _endTimeController.text =
-                                '${endTime.hour}:${endTime.minute.toString().padLeft(2, '0')}';
-                          });
-                        }
-                      },
-                      child: AbsorbPointer(
-                        child: TextField(
-                          controller: _endTimeController,
-                          decoration: const InputDecoration(labelText: '終了時刻'),
-                        ),
-                      ),
-                    ),
-                  ] else if (selectedType == 'task') ...[
-                    DropdownButtonFormField<String>(
-                      value: selectedSubject,
-                      decoration: InputDecoration(labelText: '教科'),
-                      onChanged: (newValue) {
+                    SwitchListTile(
+                      title: Text('終日'),
+                      value: isAllDay,
+                      onChanged: (bool value) {
                         setState(() {
-                          selectedSubject = newValue!;
+                          isAllDay = value;
+                          if (isAllDay) {
+                            _startDateTimeController.text =
+                                DateFormat('yyyy-MM-dd').format(startDateTime);
+                            _endDateTimeController.text =
+                                DateFormat('yyyy-MM-dd').format(endDateTime);
+                          } else {
+                            _startDateTimeController.text =
+                                DateFormat('yyyy-MM-dd HH:mm')
+                                    .format(startDateTime);
+                            _endDateTimeController.text =
+                                DateFormat('yyyy-MM-dd HH:mm')
+                                    .format(endDateTime);
+                          }
                         });
                       },
-                      items: subjects
-                          .map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
                     ),
+                    if (!isAllDay) ...[
+                      GestureDetector(
+                        onTap: () async {
+                          DateTime? pickedDateTime = await showDatePicker(
+                            context: context,
+                            initialDate: startDateTime,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2101),
+                          );
+                          if (pickedDateTime != null) {
+                            TimeOfDay? pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime:
+                                  TimeOfDay.fromDateTime(startDateTime),
+                            );
+                            if (pickedTime != null) {
+                              setState(() {
+                                startDateTime = DateTime(
+                                  pickedDateTime.year,
+                                  pickedDateTime.month,
+                                  pickedDateTime.day,
+                                  pickedTime.hour,
+                                  pickedTime.minute,
+                                );
+                                _startDateTimeController.text =
+                                    DateFormat('yyyy-MM-dd HH:mm')
+                                        .format(startDateTime);
+                              });
+                            }
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextField(
+                            controller: _startDateTimeController,
+                            decoration:
+                                const InputDecoration(labelText: '開始日時'),
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          DateTime? pickedDateTime = await showDatePicker(
+                            context: context,
+                            initialDate: endDateTime,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2101),
+                          );
+                          if (pickedDateTime != null) {
+                            TimeOfDay? pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.fromDateTime(endDateTime),
+                            );
+                            if (pickedTime != null) {
+                              setState(() {
+                                endDateTime = DateTime(
+                                  pickedDateTime.year,
+                                  pickedDateTime.month,
+                                  pickedDateTime.day,
+                                  pickedTime.hour,
+                                  pickedTime.minute,
+                                );
+                                _endDateTimeController.text =
+                                    DateFormat('yyyy-MM-dd HH:mm')
+                                        .format(endDateTime);
+                              });
+                            }
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextField(
+                            controller: _endDateTimeController,
+                            decoration:
+                                const InputDecoration(labelText: '終了日時'),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      GestureDetector(
+                        onTap: () async {
+                          DateTime? pickedDateTime = await showDatePicker(
+                            context: context,
+                            initialDate: startDateTime,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2101),
+                          );
+                          if (pickedDateTime != null) {
+                            setState(() {
+                              startDateTime = pickedDateTime;
+                              _startDateTimeController.text =
+                                  DateFormat('yyyy-MM-dd')
+                                      .format(startDateTime);
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextField(
+                            controller: _startDateTimeController,
+                            decoration: const InputDecoration(labelText: '開始日'),
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          DateTime? pickedDateTime = await showDatePicker(
+                            context: context,
+                            initialDate: endDateTime,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2101),
+                          );
+                          if (pickedDateTime != null) {
+                            setState(() {
+                              endDateTime = pickedDateTime;
+                              _endDateTimeController.text =
+                                  DateFormat('yyyy-MM-dd').format(endDateTime);
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextField(
+                            controller: _endDateTimeController,
+                            decoration: const InputDecoration(labelText: '終了日'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ] else if (selectedType == 'task') ...[
                     TextField(
                       controller: _eventController,
                       decoration: const InputDecoration(labelText: '課題名'),
@@ -425,13 +587,25 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         setState(() {});
                       },
                     ),
+                    DropdownButtonFormField<String>(
+                      value: selectedSubject,
+                      decoration: InputDecoration(labelText: '教科'),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedSubject = value!;
+                        });
+                      },
+                      items: subjects.map((String subject) {
+                        return DropdownMenuItem<String>(
+                          value: subject,
+                          child: Text(subject),
+                        );
+                      }).toList(),
+                    ),
                     TextField(
                       controller: _contentController,
-                      decoration: const InputDecoration(labelText: '課題内容'),
+                      decoration: const InputDecoration(labelText: '内容'),
                       maxLines: 3,
-                      onChanged: (value) {
-                        setState(() {});
-                      },
                     ),
                   ],
                 ],
@@ -447,8 +621,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 onPressed: () {
                   if (_eventController.text.isEmpty ||
                       (selectedType == 'event' &&
-                          (_startTimeController.text.isEmpty ||
-                              _endTimeController.text.isEmpty)) ||
+                          (_startDateTimeController.text.isEmpty ||
+                              _endDateTimeController.text.isEmpty)) ||
                       (selectedType == 'task' &&
                           (_eventController.text.isEmpty ||
                               selectedSubject.isEmpty ||
@@ -466,8 +640,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     selectedSubject,
                     selectedType,
                     _contentController.text,
-                    _startTimeController.text,
-                    _endTimeController.text,
+                    startDateTime,
+                    endDateTime,
+                    selectedColor,
+                    isAllDay,
                   );
                   Navigator.pop(context);
                 },
@@ -479,27 +655,43 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  void _updateEvents(String newEvent, String subject, String eventType,
-      String content, String startTime, String endTime) {
-    List<Map<String, String>> eventsForDay = _events[_selectedDay] ?? [];
+  void _updateEvents(
+      String newEvent,
+      String subject,
+      String eventType,
+      String content,
+      DateTime startDateTime,
+      DateTime endDateTime,
+      Color color,
+      bool isAllDay) {
+    DateTime eventDate =
+        DateTime(startDateTime.year, startDateTime.month, startDateTime.day);
+    List<Map<String, dynamic>> eventsForDay = _events[eventDate] ?? [];
     eventsForDay.add({
       'type': eventType,
       'event': newEvent,
       'task': eventType == 'task' ? newEvent : '',
       'subject': subject,
       'content': content,
-      'startTime': startTime,
-      'endTime': endTime,
+      'startDateTime': startDateTime,
+      'endDateTime': endDateTime,
+      'startTime': isAllDay ? null : DateFormat('HH:mm').format(startDateTime),
+      'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime),
+      'color': color.value,
+      'isAllDay': isAllDay,
     });
 
     setState(() {
-      _events[_selectedDay] = eventsForDay;
+      _events[eventDate] = eventsForDay;
     });
 
     _saveSharedPreferencesData();
   }
 
-  List<Map<String, String>> _getEventsForDay(DateTime day) {
-    return _events[day] ?? [];
+  List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
+    return _events.entries
+        .where((entry) => isSameDay(entry.key, day))
+        .expand((entry) => entry.value)
+        .toList();
   }
 }
