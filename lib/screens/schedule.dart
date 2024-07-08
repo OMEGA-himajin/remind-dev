@@ -323,9 +323,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   void _showAddEventDialog() {
-    _loadSharedPreferencesData();
     final TextEditingController _eventController = TextEditingController();
     final TextEditingController _contentController = TextEditingController();
+    final TextEditingController _dateController = TextEditingController();
     final TextEditingController _startDateTimeController =
         TextEditingController();
     final TextEditingController _endDateTimeController =
@@ -333,10 +333,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     String selectedType = 'event';
     String selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
     Color selectedColor = Colors.blue;
-    DateTime startDateTime = _selectedDay;
-    DateTime endDateTime = _selectedDay.add(Duration(hours: 1));
+    DateTime selectedDate = _selectedDay;
+    DateTime startDateTime = DateTime.now();
+    DateTime endDateTime = DateTime.now().add(Duration(hours: 1));
     bool isAllDay = false;
 
+    _dateController.text = DateFormat('yyyy-MM-dd').format(selectedDate);
     _startDateTimeController.text =
         DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
     _endDateTimeController.text =
@@ -361,6 +363,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         selectedType = value!;
                         _eventController.clear();
                         _contentController.clear();
+                        _dateController.text =
+                            DateFormat('yyyy-MM-dd').format(selectedDate);
                         _startDateTimeController.text =
                             DateFormat('yyyy-MM-dd HH:mm')
                                 .format(startDateTime);
@@ -438,19 +442,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       onChanged: (bool value) {
                         setState(() {
                           isAllDay = value;
-                          if (isAllDay) {
-                            _startDateTimeController.text =
-                                DateFormat('yyyy-MM-dd').format(startDateTime);
-                            _endDateTimeController.text =
-                                DateFormat('yyyy-MM-dd').format(endDateTime);
-                          } else {
-                            _startDateTimeController.text =
-                                DateFormat('yyyy-MM-dd HH:mm')
-                                    .format(startDateTime);
-                            _endDateTimeController.text =
-                                DateFormat('yyyy-MM-dd HH:mm')
-                                    .format(endDateTime);
-                          }
                         });
                       },
                     ),
@@ -533,48 +524,24 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ] else ...[
                       GestureDetector(
                         onTap: () async {
-                          DateTime? pickedDateTime = await showDatePicker(
+                          DateTime? pickedDate = await showDatePicker(
                             context: context,
-                            initialDate: startDateTime,
+                            initialDate: selectedDate,
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2101),
                           );
-                          if (pickedDateTime != null) {
+                          if (pickedDate != null) {
                             setState(() {
-                              startDateTime = pickedDateTime;
-                              _startDateTimeController.text =
-                                  DateFormat('yyyy-MM-dd')
-                                      .format(startDateTime);
+                              selectedDate = pickedDate;
+                              _dateController.text =
+                                  DateFormat('yyyy-MM-dd').format(selectedDate);
                             });
                           }
                         },
                         child: AbsorbPointer(
                           child: TextField(
-                            controller: _startDateTimeController,
-                            decoration: const InputDecoration(labelText: '開始日'),
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () async {
-                          DateTime? pickedDateTime = await showDatePicker(
-                            context: context,
-                            initialDate: endDateTime,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2101),
-                          );
-                          if (pickedDateTime != null) {
-                            setState(() {
-                              endDateTime = pickedDateTime;
-                              _endDateTimeController.text =
-                                  DateFormat('yyyy-MM-dd').format(endDateTime);
-                            });
-                          }
-                        },
-                        child: AbsorbPointer(
-                          child: TextField(
-                            controller: _endDateTimeController,
-                            decoration: const InputDecoration(labelText: '終了日'),
+                            controller: _dateController,
+                            decoration: const InputDecoration(labelText: '日付'),
                           ),
                         ),
                       ),
@@ -621,8 +588,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 onPressed: () {
                   if (_eventController.text.isEmpty ||
                       (selectedType == 'event' &&
-                          (_startDateTimeController.text.isEmpty ||
-                              _endDateTimeController.text.isEmpty)) ||
+                          _dateController.text.isEmpty) ||
                       (selectedType == 'task' &&
                           (_eventController.text.isEmpty ||
                               selectedSubject.isEmpty ||
@@ -640,8 +606,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     selectedSubject,
                     selectedType,
                     _contentController.text,
-                    startDateTime,
-                    endDateTime,
+                    isAllDay ? selectedDate : startDateTime,
+                    isAllDay ? null : endDateTime,
                     selectedColor,
                     isAllDay,
                   );
@@ -656,25 +622,32 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   void _updateEvents(
-      String newEvent,
-      String subject,
-      String eventType,
-      String content,
-      DateTime startDateTime,
-      DateTime endDateTime,
-      Color color,
-      bool isAllDay) {
+    String newEvent,
+    String subject,
+    String eventType,
+    String content,
+    DateTime startDateTime,
+    DateTime? endDateTime,
+    Color color,
+    bool isAllDay,
+  ) {
     DateTime eventDate =
         DateTime(startDateTime.year, startDateTime.month, startDateTime.day);
     List<Map<String, dynamic>> eventsForDay = _events[eventDate] ?? [];
+
+    if (isAllDay) {
+      endDateTime =
+          startDateTime.add(Duration(days: 1)).subtract(Duration(seconds: 1));
+    }
+
     eventsForDay.add({
       'type': eventType,
       'event': newEvent,
       'task': eventType == 'task' ? newEvent : '',
       'subject': subject,
       'content': content,
-      'startDateTime': startDateTime,
-      'endDateTime': endDateTime,
+      'startDateTime': startDateTime.toIso8601String(),
+      'endDateTime': endDateTime!.toIso8601String(),
       'startTime': isAllDay ? null : DateFormat('HH:mm').format(startDateTime),
       'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime),
       'color': color.value,

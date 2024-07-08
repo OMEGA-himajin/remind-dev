@@ -1,21 +1,19 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'screens/home.dart';
 import 'screens/items.dart';
-import 'screens/schedule.dart' as schedule; // 名前空間を指定して曖昧さを解消
+import 'screens/schedule.dart' as schedule;
 import 'screens/timetable.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Firebase を初期化
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Firebase が正常に初期化されたときにログを出力
   print('Firebase initialized successfully');
-  // アプリを起動
-  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -44,9 +42,9 @@ class MyStatefulWidget extends StatefulWidget {
 class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   static final List<Widget> _screens = [
     const HomeScreen(),
-    const TimeTableScreen(), // 時間割画面を定義
+    const TimeTableScreen(),
     const ItemsScreen(),
-    const schedule.ScheduleScreen() // 名前空間を指定して曖昧さを解消
+    const schedule.ScheduleScreen()
   ];
 
   int _selectedIndex = 0;
@@ -71,6 +69,80 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'スケジュール'),
         ],
         type: BottomNavigationBarType.fixed,
+      ),
+    );
+  }
+}
+
+// データ管理のクラス
+class DataManager {
+  static final DataManager _instance = DataManager._internal();
+
+  factory DataManager() {
+    return _instance;
+  }
+
+  DataManager._internal();
+
+  Map<String, dynamic> _data = {};
+
+  Future<void> loadData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? jsonString = prefs.getString('timetable');
+    if (jsonString != null) {
+      _data = json.decode(jsonString);
+    }
+  }
+
+  Future<void> saveData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String jsonString = json.encode(_data);
+    await prefs.setString('timetable', jsonString);
+  }
+
+  Map<String, dynamic> getData() {
+    return _data;
+  }
+
+  void updateData(Map<String, dynamic> newData) {
+    _data.addAll(newData);
+    saveData();
+  }
+}
+
+// 共通のUIコンポーネント
+class CommonUI {
+  static AppBar buildAppBar(String title) {
+    return AppBar(
+      title: Text(title),
+    );
+  }
+
+  static Drawer buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        children: <Widget>[
+          const DrawerHeader(
+            child: Text('メニュー'),
+          ),
+          ListTile(
+            title: const Text("ホーム"),
+            trailing: const Icon(Icons.home),
+            onTap: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              );
+            },
+          ),
+          ListTile(
+            title: const Text("設定"),
+            trailing: const Icon(Icons.settings),
+            onTap: () {
+              // 設定画面への遷移処理
+            },
+          ),
+        ],
       ),
     );
   }
