@@ -12,16 +12,18 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
+  final DataManager _dataManager = DataManager();
   late DateTime _selectedDay;
+  late DateTime _focusedDay;
   bool _isLoading = true;
   List<String> subjects = [];
   bool _isAddingEvent = false;
-  final DataManager _dataManager = DataManager();
 
   @override
   void initState() {
     super.initState();
     _selectedDay = DateTime.now();
+    _focusedDay = DateTime.now();
     _loadData();
   }
 
@@ -52,13 +54,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           TableCalendar(
                             firstDay: DateTime.utc(2010, 1, 1),
                             lastDay: DateTime.utc(2030, 1, 1),
-                            focusedDay: _selectedDay,
+                            focusedDay: _focusedDay,
                             selectedDayPredicate: (day) {
                               return isSameDay(_selectedDay, day);
                             },
                             onDaySelected: (selectedDay, focusedDay) {
                               setState(() {
                                 _selectedDay = selectedDay;
+                                _focusedDay = focusedDay;
                                 _isAddingEvent = true;
                               });
                             },
@@ -76,7 +79,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               },
                             ),
                             eventLoader: (day) {
-                              return _dataManager.getEventsForDay(day);
+                              return _dataManager.getEventsForPeriod(
+                                day,
+                                day
+                                    .add(Duration(days: 1))
+                                    .subtract(Duration(seconds: 1)),
+                              );
                             },
                           ),
                         ],
@@ -147,6 +155,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Widget _buildDayContainer(DateTime day, DateTime focusedDay,
       {bool isSelected = false, bool isToday = false}) {
+    List<Map<String, dynamic>> events = _dataManager.getEventsForPeriod(
+      day,
+      day.add(Duration(days: 1)).subtract(Duration(seconds: 1)),
+    );
+
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -176,23 +189,38 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ..._dataManager.getEventsForDay(day).map((event) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Color(event['color'] as int),
-                          borderRadius: BorderRadius.circular(4.0),
-                        ),
-                        padding: const EdgeInsets.all(4.0),
-                        child: Text(
-                          event['type'] == 'task'
-                              ? event['task']
-                              : event['event'],
-                          style: TextStyle(color: Colors.white, fontSize: 10),
-                          overflow: TextOverflow.ellipsis,
+                ...events.map((event) {
+                  DateTime startDate = DateTime.parse(event['startDateTime']);
+                  DateTime endDate = DateTime.parse(event['endDateTime']);
+                  bool isStart = isSameDay(day, startDate);
+                  bool isEnd = isSameDay(day, endDate);
+                  /*bool isMiddle =
+                      day.isAfter(startDate) && day.isBefore(endDate);*/
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 2.0, vertical: 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Color(event['color'] as int),
+                        borderRadius: BorderRadius.horizontal(
+                          left: isStart ? Radius.circular(4.0) : Radius.zero,
+                          right: isEnd ? Radius.circular(4.0) : Radius.zero,
                         ),
                       ),
-                    )),
+                      padding: const EdgeInsets.all(2.0),
+                      child: Text(
+                        isStart
+                            ? (event['type'] == 'task'
+                                ? event['task']
+                                : event['event'])
+                            : '',
+                        style: TextStyle(color: Colors.white, fontSize: 10),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  );
+                }),
               ],
             ),
           ),
@@ -202,8 +230,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Widget _buildEventList() {
-    List<Map<String, dynamic>> events =
-        _dataManager.getEventsForDay(_selectedDay);
+    List<Map<String, dynamic>> events = _dataManager.getEventsForPeriod(
+      _selectedDay,
+      _selectedDay.add(Duration(days: 1)).subtract(Duration(seconds: 1)),
+    );
+
     if (events.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0),

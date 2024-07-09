@@ -65,8 +65,10 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'ホーム'),
           BottomNavigationBarItem(icon: Icon(Icons.table_view), label: '時間割'),
-          BottomNavigationBarItem(icon: Icon(Icons.library_books), label: '持ち物'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'スケジュール'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.library_books), label: '持ち物'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_month), label: 'スケジュール'),
         ],
         type: BottomNavigationBarType.fixed,
       ),
@@ -93,7 +95,7 @@ class DataManager {
     if (jsonString != null) {
       _data = json.decode(jsonString);
     }
-    
+
     String? eventsJson = prefs.getString('events');
     if (eventsJson != null) {
       Map<String, dynamic> eventsMap = json.decode(eventsJson);
@@ -216,9 +218,10 @@ class DataManager {
   }
 
   // イベントの更新
-  Future<void> updateEvent(String oldKey, Map<String, dynamic> updatedEvent) async {
+  Future<void> updateEvent(
+      String oldKey, Map<String, dynamic> updatedEvent) async {
     String newKey = updatedEvent['startDateTime'].split('T')[0];
-    
+
     // 古いイベントを削除
     _events[oldKey]?.removeWhere((e) => e['id'] == updatedEvent['id']);
     if (_events[oldKey]?.isEmpty ?? false) {
@@ -241,6 +244,18 @@ class DataManager {
       _events.remove(key);
     }
     await saveData();
+  }
+
+  // 期間内のイベントを取得
+  List<Map<String, dynamic>> getEventsForPeriod(DateTime start, DateTime end) {
+    List<Map<String, dynamic>> events = [];
+    for (DateTime day = start;
+        day.isBefore(end.add(Duration(days: 1)));
+        day = day.add(Duration(days: 1))) {
+      String key = day.toIso8601String().split('T')[0];
+      events.addAll(_events[key] ?? []);
+    }
+    return events;
   }
 }
 
