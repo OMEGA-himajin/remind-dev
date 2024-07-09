@@ -67,10 +67,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 return _buildDayContainer(day, focusedDay);
                               },
                               selectedBuilder: (context, day, focusedDay) {
-                                return _buildDayContainer(day, focusedDay, isSelected: true);
+                                return _buildDayContainer(day, focusedDay,
+                                    isSelected: true);
                               },
                               todayBuilder: (context, day, focusedDay) {
-                                return _buildDayContainer(day, focusedDay, isToday: true);
+                                return _buildDayContainer(day, focusedDay,
+                                    isToday: true);
                               },
                             ),
                             eventLoader: (day) {
@@ -101,7 +103,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
-                                  '$_selectedDay の予定',
+                                  DateFormat('yyyy年MM月dd日の予定')
+                                      .format(_selectedDay),
                                   style: TextStyle(
                                     fontSize: 20.0,
                                     fontWeight: FontWeight.bold,
@@ -142,7 +145,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  Widget _buildDayContainer(DateTime day, DateTime focusedDay, {bool isSelected = false, bool isToday = false}) {
+  Widget _buildDayContainer(DateTime day, DateTime focusedDay,
+      {bool isSelected = false, bool isToday = false}) {
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -157,7 +161,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               '${day.day}',
               style: TextStyle(
                 fontSize: 16.0,
-                color: isSelected ? Colors.blue : isToday ? Colors.red : null,
+                color: isSelected
+                    ? Colors.blue
+                    : isToday
+                        ? Colors.red
+                        : null,
               ),
             ),
           ),
@@ -178,10 +186,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         padding: const EdgeInsets.all(4.0),
                         child: Text(
                           event['type'] == 'task'
-                              ? '${event['task']}'
-                              : event['isAllDay'] == true
-                                  ? '終日 ${event['event']}'
-                                  : '${event['startTime']}~${event['endTime']} ${event['event']}',
+                              ? event['task']
+                              : event['event'],
                           style: TextStyle(color: Colors.white, fontSize: 10),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -196,7 +202,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Widget _buildEventList() {
-    List<Map<String, dynamic>> events = _dataManager.getEventsForDay(_selectedDay);
+    List<Map<String, dynamic>> events =
+        _dataManager.getEventsForDay(_selectedDay);
     if (events.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -212,7 +219,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           return Card(
             margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
             child: ListTile(
-              title: Text(event['type'] == 'task' ? event['task']! : event['event']!),
+              title: Text(
+                  event['type'] == 'task' ? event['task']! : event['event']!),
               subtitle: event['type'] == 'task'
                   ? Text('教科: ${event['subject']!}')
                   : Text(event['isAllDay'] == true
@@ -229,8 +237,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final TextEditingController _eventController = TextEditingController();
     final TextEditingController _contentController = TextEditingController();
     final TextEditingController _dateController = TextEditingController();
-    final TextEditingController _startDateTimeController = TextEditingController();
-    final TextEditingController _endDateTimeController = TextEditingController();
+    final TextEditingController _startDateTimeController =
+        TextEditingController();
+    final TextEditingController _endDateTimeController =
+        TextEditingController();
     String selectedType = 'event';
     String selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
     Color selectedColor = Colors.blue;
@@ -240,8 +250,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     bool isAllDay = false;
 
     _dateController.text = DateFormat('yyyy-MM-dd').format(selectedDate);
-    _startDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
-    _endDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
+    _startDateTimeController.text =
+        DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
+    _endDateTimeController.text =
+        DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
 
     showDialog(
       context: context,
@@ -262,16 +274,23 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         selectedType = value!;
                         _eventController.clear();
                         _contentController.clear();
-                        _dateController.text = DateFormat('yyyy-MM-dd').format(selectedDate);
-                        _startDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
-                        _endDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
-                        selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
+                        _dateController.text =
+                            DateFormat('yyyy-MM-dd').format(selectedDate);
+                        _startDateTimeController.text =
+                            DateFormat('yyyy-MM-dd HH:mm')
+                                .format(startDateTime);
+                        _endDateTimeController.text =
+                            DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
+                        selectedSubject =
+                            subjects.isNotEmpty ? subjects[0] : '';
                         isAllDay = false;
                       });
                     },
                     items: [
-                      DropdownMenuItem<String>(value: 'event', child: Text('予定')),
-                      DropdownMenuItem<String>(value: 'task', child: Text('課題')),
+                      DropdownMenuItem<String>(
+                          value: 'event', child: Text('予定')),
+                      DropdownMenuItem<String>(
+                          value: 'task', child: Text('課題')),
                     ],
                   ),
                   SizedBox(height: 16.0),
@@ -345,7 +364,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           if (pickedDateTime != null) {
                             TimeOfDay? pickedTime = await showTimePicker(
                               context: context,
-                              initialTime: TimeOfDay.fromDateTime(startDateTime),
+                              initialTime:
+                                  TimeOfDay.fromDateTime(startDateTime),
                             );
                             if (pickedTime != null) {
                               setState(() {
@@ -356,7 +376,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   pickedTime.hour,
                                   pickedTime.minute,
                                 );
-                                _startDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
+                                _startDateTimeController.text =
+                                    DateFormat('yyyy-MM-dd HH:mm')
+                                        .format(startDateTime);
                               });
                             }
                           }
@@ -364,7 +386,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         child: AbsorbPointer(
                           child: TextField(
                             controller: _startDateTimeController,
-                            decoration: const InputDecoration(labelText: '開始日時'),
+                            decoration:
+                                const InputDecoration(labelText: '開始日時'),
                           ),
                         ),
                       ),
@@ -390,7 +413,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   pickedTime.hour,
                                   pickedTime.minute,
                                 );
-                                _endDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
+                                _endDateTimeController.text =
+                                    DateFormat('yyyy-MM-dd HH:mm')
+                                        .format(endDateTime);
                               });
                             }
                           }
@@ -398,7 +423,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         child: AbsorbPointer(
                           child: TextField(
                             controller: _endDateTimeController,
-                            decoration: const InputDecoration(labelText: '終了日時'),
+                            decoration:
+                                const InputDecoration(labelText: '終了日時'),
                           ),
                         ),
                       ),
@@ -414,7 +440,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           if (pickedDate != null) {
                             setState(() {
                               selectedDate = pickedDate;
-                              _dateController.text = DateFormat('yyyy-MM-dd').format(selectedDate);
+                              _dateController.text =
+                                  DateFormat('yyyy-MM-dd').format(selectedDate);
                             });
                           }
                         },
@@ -467,7 +494,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 child: const Text('追加'),
                 onPressed: () {
                   if (_eventController.text.isEmpty ||
-                      (selectedType == 'event' && _dateController.text.isEmpty) ||
+                      (selectedType == 'event' &&
+                          _dateController.text.isEmpty) ||
                       (selectedType == 'task' &&
                           (_eventController.text.isEmpty ||
                               selectedSubject.isEmpty ||
@@ -518,7 +546,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       'subject': subject,
       'content': content,
       'startDateTime': startDateTime.toIso8601String(),
-      'endDateTime': endDateTime?.toIso8601String() ?? startDateTime.toIso8601String(),
+      'endDateTime':
+          endDateTime?.toIso8601String() ?? startDateTime.toIso8601String(),
       'startTime': isAllDay ? null : DateFormat('HH:mm').format(startDateTime),
       'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime!),
       'color': color.value,
