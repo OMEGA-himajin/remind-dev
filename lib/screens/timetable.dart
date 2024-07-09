@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import '../main.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -24,37 +23,32 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   List<String> sun = List.filled(10, '');
   List<String> subjects = [''];
 
-  late Map<String, dynamic> week = {};
-
   @override
   void initState() {
     super.initState();
-    _loadSharedPreferencesData();
+    _loadData();
   }
 
-  Future<void> _loadSharedPreferencesData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? jsonString = prefs.getString('timetable');
-    if (jsonString != null) {
-      Map<String, dynamic> jsonData = json.decode(jsonString);
-      setState(() {
-        data = jsonData;
-        times = data['times'] ?? 6;
-        _saturday = data['enable_sat'] ?? true;
-        _sunday = data['enable_sun'] ?? true;
-        mon = List<String>.from(data['mon'] ?? List.filled(10, ''));
-        tue = List<String>.from(data['tue'] ?? List.filled(10, ''));
-        wed = List<String>.from(data['wed'] ?? List.filled(10, ''));
-        thu = List<String>.from(data['thu'] ?? List.filled(10, ''));
-        fri = List<String>.from(data['fri'] ?? List.filled(10, ''));
-        sat = List<String>.from(data['sat'] ?? List.filled(10, ''));
-        sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
-        subjects = List<String>.from(
-            data['sub']?.map((subject) => subject.toString()) ?? []);
-        subjects =
-            subjects.where((subject) => subject.trim().isNotEmpty).toList();
-      });
-    }
+  Future<void> _loadData() async {
+    await DataManager().loadData();
+    Map<String, dynamic> timetableData = DataManager().getTimetableData();
+    setState(() {
+      data = timetableData;
+      times = data['times'] ?? 6;
+      _saturday = data['enable_sat'] ?? true;
+      _sunday = data['enable_sun'] ?? true;
+      mon = List<String>.from(data['mon'] ?? List.filled(10, ''));
+      tue = List<String>.from(data['tue'] ?? List.filled(10, ''));
+      wed = List<String>.from(data['wed'] ?? List.filled(10, ''));
+      thu = List<String>.from(data['thu'] ?? List.filled(10, ''));
+      fri = List<String>.from(data['fri'] ?? List.filled(10, ''));
+      sat = List<String>.from(data['sat'] ?? List.filled(10, ''));
+      sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
+      subjects = List<String>.from(
+          data['sub']?.map((subject) => subject.toString()) ?? []);
+      subjects =
+          subjects.where((subject) => subject.trim().isNotEmpty).toList();
+    });
   }
 
   @override
@@ -73,12 +67,11 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
             const Text('時間数を選択してください'),
             DropdownButton<int>(
               value: times,
-              onChanged: (value) {
-                setState(() {
-                  times = value!;
-                  _makeJson();
-                  _saveToSharedPreferences();
-                });
+              onChanged: (value) async {
+                if (value != null) {
+                  await DataManager().updateTimes(value);
+                  await _loadData();
+                }
               },
               items: List.generate(
                 10,
@@ -114,29 +107,22 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
             SwitchListTile(
               title: const Text('土曜日を表示する'),
               value: _saturday,
-              onChanged: (bool value) {
-                setState(() {
-                  _saturday = value;
-                  _makeJson();
-                  _saveToSharedPreferences();
-                });
+              onChanged: (bool value) async {
+                await DataManager().updateSaturdayEnabled(value);
+                await _loadData();
               },
             ),
             SwitchListTile(
               title: const Text('日曜日を表示する'),
               value: _sunday,
-              onChanged: (bool value) {
-                setState(() {
-                  _sunday = value;
-                  _makeJson();
-                  _saveToSharedPreferences();
-                });
+              onChanged: (bool value) async {
+                await DataManager().updateSundayEnabled(value);
+                await _loadData();
               },
             ),
             TextButton(
               onPressed: () async {
-                _makeJson();
-                _saveToSharedPreferences();
+                await DataManager().saveData();
               },
               child: const Text('時間割を保存'),
             ),
@@ -235,29 +221,6 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     );
   }
 
-  void _makeJson() {
-    week = {
-      "times": times,
-      "enable_sat": _saturday,
-      "enable_sun": _sunday,
-      "mon": mon,
-      "tue": tue,
-      "wed": wed,
-      "thu": thu,
-      "fri": fri,
-      "sat": sat,
-      "sun": sun,
-      "sub": subjects,
-    };
-  }
-
-  void _saveToSharedPreferences() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String jsonString = json.encode(week);
-    await prefs.setString('timetable', jsonString);
-    print('Shared Preferencesに保存されました');
-  }
-
   void _showInputDialog(BuildContext context, String day, int index) async {
     String selectedSubject = '';
 
@@ -319,35 +282,10 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
           },
         );
       },
-    ).then((value) {
+    ).then((value) async {
       if (value != null) {
-        setState(() {
-          switch (day) {
-            case 'mon':
-              mon[index] = value;
-              break;
-            case 'tue':
-              tue[index] = value;
-              break;
-            case 'wed':
-              wed[index] = value;
-              break;
-            case 'thu':
-              thu[index] = value;
-              break;
-            case 'fri':
-              fri[index] = value;
-              break;
-            case 'sat':
-              sat[index] = value;
-              break;
-            case 'sun':
-              sun[index] = value;
-              break;
-          }
-          _makeJson();
-          _saveToSharedPreferences();
-        });
+        await DataManager().updateDaySubject(day, index, value);
+        await _loadData();
       }
     });
   }
@@ -403,12 +341,11 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                                 ),
                                 IconButton(
                                   icon: Icon(Icons.delete),
-                                  onPressed: () {
-                                    setState(() {
-                                      subjects.removeAt(index);
-                                      _makeJson();
-                                      _saveToSharedPreferences();
-                                    });
+                                  onPressed: () async {
+                                    await DataManager()
+                                        .deleteSubject(subjects[index]);
+                                    await _loadData();
+                                    setState(() {});
                                   },
                                 ),
                               ],
@@ -441,15 +378,13 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 ),
                 TextButton(
                   child: const Text('追加'),
-                  onPressed: () {
+                  onPressed: () async {
                     String subjectName = textEditingController.text.trim();
                     if (subjectName.isNotEmpty &&
-                        !subjects.contains(subjectName)) {
-                      setState(() {
-                        subjects.add(subjectName);
-                        _makeJson();
-                        _saveToSharedPreferences();
-                      });
+                        !await DataManager().subjectExists(subjectName)) {
+                      await DataManager().addSubject(subjectName);
+                      await _loadData();
+                      setState(() {});
                       textEditingController.clear();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -473,62 +408,34 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     );
   }
 
-  void _addSubjectToDay(int weekday, String subjectName) {
-    setState(() {
-      switch (weekday) {
-        case DateTime.monday:
-          mon.add(subjectName);
-          break;
-        case DateTime.tuesday:
-          tue.add(subjectName);
-          break;
-        case DateTime.wednesday:
-          wed.add(subjectName);
-          break;
-        case DateTime.thursday:
-          thu.add(subjectName);
-          break;
-        case DateTime.friday:
-          fri.add(subjectName);
-          break;
-        case DateTime.saturday:
-          sat.add(subjectName);
-          break;
-        case DateTime.sunday:
-          sun.add(subjectName);
-          break;
-      }
-      _makeJson();
-      _saveToSharedPreferences();
-    });
-  }
-
-  Future<bool> _checkIfSubjectExists(String subjectName) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? jsonString = prefs.getString('timetable');
-    if (jsonString != null) {
-      Map<String, dynamic> data = json.decode(jsonString);
-      List<String> existingSubjects = List<String>.from(data['sub'] ?? []);
-      return !existingSubjects.contains(subjectName);
+  void _addSubjectToDay(int weekday, String subjectName) async {
+    String day;
+    switch (weekday) {
+      case DateTime.monday:
+        day = 'mon';
+        break;
+      case DateTime.tuesday:
+        day = 'tue';
+        break;
+      case DateTime.wednesday:
+        day = 'wed';
+        break;
+      case DateTime.thursday:
+        day = 'thu';
+        break;
+      case DateTime.friday:
+        day = 'fri';
+        break;
+      case DateTime.saturday:
+        day = 'sat';
+        break;
+      case DateTime.sunday:
+        day = 'sun';
+        break;
+      default:
+        return;
     }
-    return true;
-  }
-
-  void _deleteSubject(String subjectName) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? jsonString = prefs.getString('timetable');
-    if (jsonString != null) {
-      Map<String, dynamic> data = json.decode(jsonString);
-      List<String> existingSubjects = List<String>.from(data['sub'] ?? []);
-      existingSubjects.remove(subjectName);
-      data['sub'] = existingSubjects;
-      jsonString = json.encode(data);
-      await prefs.setString('timetable', jsonString);
-      setState(() {
-        subjects = existingSubjects;
-      });
-      _makeJson();
-      _saveToSharedPreferences();
-    }
+    await DataManager().updateDaySubject(day, times, subjectName);
+    await _loadData();
   }
 }

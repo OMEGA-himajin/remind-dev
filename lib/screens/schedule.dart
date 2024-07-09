@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
+import '../main.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -13,59 +12,25 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
-  late Map<String, dynamic> data = {};
-  Map<DateTime, List<Map<String, dynamic>>> _events = {};
   late DateTime _selectedDay;
   bool _isLoading = true;
   List<String> subjects = [];
-
   bool _isAddingEvent = false;
+  final DataManager _dataManager = DataManager();
 
   @override
   void initState() {
     super.initState();
     _selectedDay = DateTime.now();
-    _loadSharedPreferencesData();
+    _loadData();
   }
 
-  Future<void> _loadSharedPreferencesData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    String? timetableJson = prefs.getString('timetable');
-    if (timetableJson != null) {
-      Map<String, dynamic> jsonData = json.decode(timetableJson);
-      setState(() {
-        data = jsonData;
-        subjects = List<String>.from(
-            data['sub']?.map((subject) => subject.toString()) ?? []);
-      });
-    }
-
-    String? eventsJson = prefs.getString('events');
-    if (eventsJson != null) {
-      Map<String, dynamic> eventsMap = json.decode(eventsJson);
-      _events = eventsMap.map((key, value) {
-        return MapEntry(
-          DateTime.parse(key),
-          (value as List<dynamic>)
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList(),
-        );
-      });
-    }
-
+  Future<void> _loadData() async {
+    await _dataManager.loadData();
     setState(() {
+      subjects = List<String>.from(_dataManager.getData()['sub'] ?? []);
       _isLoading = false;
     });
-  }
-
-  Future<void> _saveSharedPreferencesData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    Map<String, dynamic> eventsMap = _events.map((key, value) {
-      return MapEntry(key.toIso8601String(), value);
-    });
-    await prefs.setString('events', json.encode(eventsMap));
   }
 
   @override
@@ -74,23 +39,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       appBar: AppBar(
         title: const Text('スケジュール'),
       ),
-      drawer: Drawer(
-        child: ListView(
-          children: const <Widget>[
-            DrawerHeader(
-              child: Text('メニュー'),
-            ),
-            ListTile(
-              title: Text("ホーム"),
-              trailing: Icon(Icons.home),
-            ),
-            ListTile(
-              title: Text("設定"),
-              trailing: Icon(Icons.settings),
-            ),
-          ],
-        ),
-      ),
+      drawer: CommonUI.buildDrawer(context),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : Column(
@@ -118,16 +67,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 return _buildDayContainer(day, focusedDay);
                               },
                               selectedBuilder: (context, day, focusedDay) {
-                                return _buildDayContainer(day, focusedDay,
-                                    isSelected: true);
+                                return _buildDayContainer(day, focusedDay, isSelected: true);
                               },
                               todayBuilder: (context, day, focusedDay) {
-                                return _buildDayContainer(day, focusedDay,
-                                    isToday: true);
+                                return _buildDayContainer(day, focusedDay, isToday: true);
                               },
                             ),
                             eventLoader: (day) {
-                              return _getEventsForDay(day);
+                              return _dataManager.getEventsForDay(day);
                             },
                           ),
                         ],
@@ -160,75 +107,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                if (_events[_selectedDay] != null &&
-                                    _events[_selectedDay]!.isNotEmpty)
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(height: 8.0),
-                                      Text(
-                                        '予定時刻:',
-                                        style: TextStyle(
-                                          fontSize: 16.0,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      SizedBox(height: 4.0),
-                                      ..._events[_selectedDay]!.map((event) {
-                                        if (event['type'] == 'event') {
-                                          if (event['isAllDay'] == true) {
-                                            return Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 2.0),
-                                              child: Text(
-                                                '終日',
-                                                style:
-                                                    TextStyle(fontSize: 14.0),
-                                              ),
-                                            );
-                                          } else if (event
-                                                  .containsKey('startTime') &&
-                                              event.containsKey('endTime')) {
-                                            return Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 2.0),
-                                              child: Text(
-                                                '${event['startTime']} 〜 ${event['endTime']}',
-                                                style:
-                                                    TextStyle(fontSize: 14.0),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                        return SizedBox.shrink();
-                                      }).toList(),
-                                    ],
-                                  ),
-                                Expanded(
-                                  child: ListView.builder(
-                                    itemCount:
-                                        _getEventsForDay(_selectedDay).length,
-                                    itemBuilder: (context, index) {
-                                      final event =
-                                          _getEventsForDay(_selectedDay)[index];
-                                      return Card(
-                                        margin: EdgeInsets.symmetric(
-                                            vertical: 8.0, horizontal: 16.0),
-                                        child: ListTile(
-                                          title: Text(event['type'] == 'task'
-                                              ? event['task']!
-                                              : event['event']!),
-                                          subtitle: event['type'] == 'task'
-                                              ? Text('教科: ${event['subject']!}')
-                                              : null,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
+                                _buildEventList(),
                                 SizedBox(height: 16.0),
                                 ElevatedButton(
                                   onPressed: () {
@@ -263,8 +142,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  Widget _buildDayContainer(DateTime day, DateTime focusedDay,
-      {bool isSelected = false, bool isToday = false}) {
+  Widget _buildDayContainer(DateTime day, DateTime focusedDay, {bool isSelected = false, bool isToday = false}) {
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -279,11 +157,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               '${day.day}',
               style: TextStyle(
                 fontSize: 16.0,
-                color: isSelected
-                    ? Colors.blue
-                    : isToday
-                        ? Colors.red
-                        : null,
+                color: isSelected ? Colors.blue : isToday ? Colors.red : null,
               ),
             ),
           ),
@@ -294,26 +168,25 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_getEventsForDay(day).isNotEmpty)
-                  ..._getEventsForDay(day).map((event) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Color(event['color'] as int),
-                            borderRadius: BorderRadius.circular(4.0),
-                          ),
-                          padding: const EdgeInsets.all(4.0),
-                          child: Text(
-                            event['type'] == 'task'
-                                ? '${event['task']}'
-                                : event['isAllDay'] == true
-                                    ? '終日 ${event['event']}'
-                                    : '${event['startTime']}~${event['endTime']} ${event['event']}',
-                            style: TextStyle(color: Colors.white, fontSize: 10),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                ..._dataManager.getEventsForDay(day).map((event) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Color(event['color'] as int),
+                          borderRadius: BorderRadius.circular(4.0),
                         ),
-                      )),
+                        padding: const EdgeInsets.all(4.0),
+                        child: Text(
+                          event['type'] == 'task'
+                              ? '${event['task']}'
+                              : event['isAllDay'] == true
+                                  ? '終日 ${event['event']}'
+                                  : '${event['startTime']}~${event['endTime']} ${event['event']}',
+                          style: TextStyle(color: Colors.white, fontSize: 10),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )),
               ],
             ),
           ),
@@ -322,14 +195,42 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
+  Widget _buildEventList() {
+    List<Map<String, dynamic>> events = _dataManager.getEventsForDay(_selectedDay);
+    if (events.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Text('予定はありません'),
+      );
+    }
+
+    return Expanded(
+      child: ListView.builder(
+        itemCount: events.length,
+        itemBuilder: (context, index) {
+          final event = events[index];
+          return Card(
+            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: ListTile(
+              title: Text(event['type'] == 'task' ? event['task']! : event['event']!),
+              subtitle: event['type'] == 'task'
+                  ? Text('教科: ${event['subject']!}')
+                  : Text(event['isAllDay'] == true
+                      ? '終日'
+                      : '${event['startTime']} 〜 ${event['endTime']}'),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _showAddEventDialog() {
     final TextEditingController _eventController = TextEditingController();
     final TextEditingController _contentController = TextEditingController();
     final TextEditingController _dateController = TextEditingController();
-    final TextEditingController _startDateTimeController =
-        TextEditingController();
-    final TextEditingController _endDateTimeController =
-        TextEditingController();
+    final TextEditingController _startDateTimeController = TextEditingController();
+    final TextEditingController _endDateTimeController = TextEditingController();
     String selectedType = 'event';
     String selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
     Color selectedColor = Colors.blue;
@@ -339,10 +240,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     bool isAllDay = false;
 
     _dateController.text = DateFormat('yyyy-MM-dd').format(selectedDate);
-    _startDateTimeController.text =
-        DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
-    _endDateTimeController.text =
-        DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
+    _startDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
+    _endDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
 
     showDialog(
       context: context,
@@ -363,27 +262,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         selectedType = value!;
                         _eventController.clear();
                         _contentController.clear();
-                        _dateController.text =
-                            DateFormat('yyyy-MM-dd').format(selectedDate);
-                        _startDateTimeController.text =
-                            DateFormat('yyyy-MM-dd HH:mm')
-                                .format(startDateTime);
-                        _endDateTimeController.text =
-                            DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
-                        selectedSubject =
-                            subjects.isNotEmpty ? subjects[0] : '';
+                        _dateController.text = DateFormat('yyyy-MM-dd').format(selectedDate);
+                        _startDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
+                        _endDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
+                        selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
                         isAllDay = false;
                       });
                     },
                     items: [
-                      DropdownMenuItem<String>(
-                        value: 'event',
-                        child: Text('予定'),
-                      ),
-                      DropdownMenuItem<String>(
-                        value: 'task',
-                        child: Text('課題'),
-                      ),
+                      DropdownMenuItem<String>(value: 'event', child: Text('予定')),
+                      DropdownMenuItem<String>(value: 'task', child: Text('課題')),
                     ],
                   ),
                   SizedBox(height: 16.0),
@@ -457,8 +345,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           if (pickedDateTime != null) {
                             TimeOfDay? pickedTime = await showTimePicker(
                               context: context,
-                              initialTime:
-                                  TimeOfDay.fromDateTime(startDateTime),
+                              initialTime: TimeOfDay.fromDateTime(startDateTime),
                             );
                             if (pickedTime != null) {
                               setState(() {
@@ -469,9 +356,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   pickedTime.hour,
                                   pickedTime.minute,
                                 );
-                                _startDateTimeController.text =
-                                    DateFormat('yyyy-MM-dd HH:mm')
-                                        .format(startDateTime);
+                                _startDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
                               });
                             }
                           }
@@ -479,8 +364,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         child: AbsorbPointer(
                           child: TextField(
                             controller: _startDateTimeController,
-                            decoration:
-                                const InputDecoration(labelText: '開始日時'),
+                            decoration: const InputDecoration(labelText: '開始日時'),
                           ),
                         ),
                       ),
@@ -506,9 +390,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   pickedTime.hour,
                                   pickedTime.minute,
                                 );
-                                _endDateTimeController.text =
-                                    DateFormat('yyyy-MM-dd HH:mm')
-                                        .format(endDateTime);
+                                _endDateTimeController.text = DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
                               });
                             }
                           }
@@ -516,8 +398,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         child: AbsorbPointer(
                           child: TextField(
                             controller: _endDateTimeController,
-                            decoration:
-                                const InputDecoration(labelText: '終了日時'),
+                            decoration: const InputDecoration(labelText: '終了日時'),
                           ),
                         ),
                       ),
@@ -533,8 +414,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           if (pickedDate != null) {
                             setState(() {
                               selectedDate = pickedDate;
-                              _dateController.text =
-                                  DateFormat('yyyy-MM-dd').format(selectedDate);
+                              _dateController.text = DateFormat('yyyy-MM-dd').format(selectedDate);
                             });
                           }
                         },
@@ -587,8 +467,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 child: const Text('追加'),
                 onPressed: () {
                   if (_eventController.text.isEmpty ||
-                      (selectedType == 'event' &&
-                          _dateController.text.isEmpty) ||
+                      (selectedType == 'event' && _dateController.text.isEmpty) ||
                       (selectedType == 'task' &&
                           (_eventController.text.isEmpty ||
                               selectedSubject.isEmpty ||
@@ -601,7 +480,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     );
                     return;
                   }
-                  _updateEvents(
+                  _addEvent(
                     _eventController.text,
                     selectedSubject,
                     selectedType,
@@ -621,7 +500,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  void _updateEvents(
+  void _addEvent(
     String newEvent,
     String subject,
     String eventType,
@@ -631,40 +510,23 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     Color color,
     bool isAllDay,
   ) {
-    DateTime eventDate =
-        DateTime(startDateTime.year, startDateTime.month, startDateTime.day);
-    List<Map<String, dynamic>> eventsForDay = _events[eventDate] ?? [];
-
-    if (isAllDay) {
-      endDateTime =
-          startDateTime.add(Duration(days: 1)).subtract(Duration(seconds: 1));
-    }
-
-    eventsForDay.add({
+    Map<String, dynamic> event = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'type': eventType,
       'event': newEvent,
       'task': eventType == 'task' ? newEvent : '',
       'subject': subject,
       'content': content,
       'startDateTime': startDateTime.toIso8601String(),
-      'endDateTime': endDateTime!.toIso8601String(),
+      'endDateTime': endDateTime?.toIso8601String() ?? startDateTime.toIso8601String(),
       'startTime': isAllDay ? null : DateFormat('HH:mm').format(startDateTime),
-      'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime),
+      'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime!),
       'color': color.value,
       'isAllDay': isAllDay,
-    });
+    };
 
-    setState(() {
-      _events[eventDate] = eventsForDay;
-    });
+    _dataManager.addEvent(event);
 
-    _saveSharedPreferencesData();
-  }
-
-  List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
-    return _events.entries
-        .where((entry) => isSameDay(entry.key, day))
-        .expand((entry) => entry.value)
-        .toList();
+    setState(() {});
   }
 }
