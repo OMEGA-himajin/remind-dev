@@ -130,18 +130,15 @@ class DataManager {
     saveData();
   }
 
-  // 時間割データの取得
   Map<String, dynamic> getTimetableData() {
     return _data;
   }
 
-  // 時間割データの更新
   Future<void> updateTimetableData(Map<String, dynamic> newData) async {
     _data = newData;
     await saveData();
   }
 
-  // 教科の追加
   Future<void> addSubject(String subjectName) async {
     List<String> subjects = List<String>.from(_data['sub'] ?? []);
     if (!subjects.contains(subjectName)) {
@@ -151,7 +148,6 @@ class DataManager {
     }
   }
 
-  // 教科の削除
   Future<void> deleteSubject(String subjectName) async {
     List<String> subjects = List<String>.from(_data['sub'] ?? []);
     subjects.remove(subjectName);
@@ -159,31 +155,26 @@ class DataManager {
     await saveData();
   }
 
-  // 教科の存在確認
   bool subjectExists(String subjectName) {
     List<String> subjects = List<String>.from(_data['sub'] ?? []);
     return subjects.contains(subjectName);
   }
 
-  // 時間数の更新
   Future<void> updateTimes(int newTimes) async {
     _data['times'] = newTimes;
     await saveData();
   }
 
-  // 土曜日表示の更新
   Future<void> updateSaturdayEnabled(bool enabled) async {
     _data['enable_sat'] = enabled;
     await saveData();
   }
 
-  // 日曜日表示の更新
   Future<void> updateSundayEnabled(bool enabled) async {
     _data['enable_sun'] = enabled;
     await saveData();
   }
 
-  // 特定の曜日と時間の教科を更新
   Future<void> updateDaySubject(String day, int index, String subject) async {
     List<String> daySubjects = List<String>.from(_data[day] ?? []);
     if (index < daySubjects.length) {
@@ -195,29 +186,51 @@ class DataManager {
     await saveData();
   }
 
-  // 全ての時間割データを更新
   Future<void> updateAllTimetableData(Map<String, dynamic> newData) async {
     _data = newData;
     await saveData();
   }
 
-  // イベントの取得
   List<Map<String, dynamic>> getEventsForDay(DateTime day) {
+    List<Map<String, dynamic>> events = [];
     String key = day.toIso8601String().split('T')[0];
-    return _events[key] ?? [];
+
+    // 当日の予定を追加
+    events.addAll(_events[key] ?? []);
+
+    // multidayがtrueの予定も追加
+    _events.forEach((dateKey, dateEvents) {
+      dateEvents.forEach((event) {
+        DateTime startDate = DateTime.parse(event['startDateTime']);
+        DateTime endDate = DateTime.parse(event['endDateTime']);
+        if (day.isAfter(startDate.subtract(Duration(days: 1))) &&
+            day.isBefore(endDate.add(Duration(days: 1)))) {
+          // 既に追加されていない場合のみ追加
+          if (!events.any((e) => e['id'] == event['id'])) {
+            events.add(event);
+          }
+        }
+      });
+    });
+
+    return events;
   }
 
-  // イベントの追加
   Future<void> addEvent(Map<String, dynamic> event) async {
     String key = event['startDateTime'].split('T')[0];
     if (_events[key] == null) {
       _events[key] = [];
     }
+
+    // multidayフラグを設定
+    DateTime startDate = DateTime.parse(event['startDateTime']);
+    DateTime endDate = DateTime.parse(event['endDateTime']);
+    event['multiday'] = !isSameDay(startDate, endDate);
+
     _events[key]!.add(event);
     await saveData();
   }
 
-  // イベントの更新
   Future<void> updateEvent(
       String oldKey, Map<String, dynamic> updatedEvent) async {
     String newKey = updatedEvent['startDateTime'].split('T')[0];
@@ -228,6 +241,11 @@ class DataManager {
       _events.remove(oldKey);
     }
 
+    // multidayフラグを更新
+    DateTime startDate = DateTime.parse(updatedEvent['startDateTime']);
+    DateTime endDate = DateTime.parse(updatedEvent['endDateTime']);
+    updatedEvent['multiday'] = !isSameDay(startDate, endDate);
+
     // 新しいイベントを追加
     if (_events[newKey] == null) {
       _events[newKey] = [];
@@ -237,7 +255,6 @@ class DataManager {
     await saveData();
   }
 
-  // イベントの削除
   Future<void> deleteEvent(String key, String eventId) async {
     _events[key]?.removeWhere((e) => e['id'] == eventId);
     if (_events[key]?.isEmpty ?? false) {
@@ -246,53 +263,19 @@ class DataManager {
     await saveData();
   }
 
-  // 期間内のイベントを取得
   List<Map<String, dynamic>> getEventsForPeriod(DateTime start, DateTime end) {
     List<Map<String, dynamic>> events = [];
     for (DateTime day = start;
         day.isBefore(end.add(Duration(days: 1)));
         day = day.add(Duration(days: 1))) {
-      String key = day.toIso8601String().split('T')[0];
-      events.addAll(_events[key] ?? []);
+      events.addAll(getEventsForDay(day));
     }
-    return events;
-  }
-}
-
-// 共通のUIコンポーネント
-class CommonUI {
-  static AppBar buildAppBar(String title) {
-    return AppBar(
-      title: Text(title),
-    );
+    return events.toSet().toList(); // 重複を除去
   }
 
-  static Drawer buildDrawer(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        children: <Widget>[
-          const DrawerHeader(
-            child: Text('メニュー'),
-          ),
-          ListTile(
-            title: const Text("ホーム"),
-            trailing: const Icon(Icons.home),
-            onTap: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
-              );
-            },
-          ),
-          ListTile(
-            title: const Text("設定"),
-            trailing: const Icon(Icons.settings),
-            onTap: () {
-              // 設定画面への遷移処理
-            },
-          ),
-        ],
-      ),
-    );
+  bool isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 }

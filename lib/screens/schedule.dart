@@ -13,7 +13,8 @@ class ScheduleScreen extends StatefulWidget {
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
   final DataManager _dataManager = DataManager();
-  late DateTime _selectedDay;
+  late DateTime _selectedStartDay;
+  late DateTime _selectedEndDay;
   late DateTime _focusedDay;
   bool _isLoading = true;
   List<String> subjects = [];
@@ -22,7 +23,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDay = DateTime.now();
+    _selectedStartDay = DateTime.now();
+    _selectedEndDay = DateTime.now();
     _focusedDay = DateTime.now();
     _loadData();
   }
@@ -41,7 +43,40 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       appBar: AppBar(
         title: const Text('スケジュール'),
       ),
-      drawer: CommonUI.buildDrawer(context),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Text(
+                'メニュー',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.home),
+              title: Text('ホーム'),
+              onTap: () {
+                Navigator.pushReplacementNamed(context, '/');
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.schedule),
+              title: Text('スケジュール'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            // 他のメニュー項目をここに追加
+          ],
+        ),
+      ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : Column(
@@ -56,11 +91,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             lastDay: DateTime.utc(2030, 1, 1),
                             focusedDay: _focusedDay,
                             selectedDayPredicate: (day) {
-                              return isSameDay(_selectedDay, day);
+                              return day.isAfter(_selectedStartDay
+                                      .subtract(Duration(days: 1))) &&
+                                  day.isBefore(
+                                      _selectedEndDay.add(Duration(days: 1)));
                             },
                             onDaySelected: (selectedDay, focusedDay) {
                               setState(() {
-                                _selectedDay = selectedDay;
+                                if (selectedDay.isBefore(_selectedStartDay) ||
+                                    _selectedStartDay == _selectedEndDay) {
+                                  _selectedStartDay = selectedDay;
+                                  _selectedEndDay = selectedDay;
+                                } else if (selectedDay
+                                    .isAfter(_selectedStartDay)) {
+                                  _selectedEndDay = selectedDay;
+                                }
                                 _focusedDay = focusedDay;
                                 _isAddingEvent = true;
                               });
@@ -78,14 +123,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                     isToday: true);
                               },
                             ),
-                            eventLoader: (day) {
-                              return _dataManager.getEventsForPeriod(
-                                day,
-                                day
-                                    .add(Duration(days: 1))
-                                    .subtract(Duration(seconds: 1)),
-                              );
-                            },
                           ),
                         ],
                       ),
@@ -111,8 +148,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
-                                  DateFormat('yyyy年MM月dd日の予定')
-                                      .format(_selectedDay),
+                                  _selectedStartDay == _selectedEndDay
+                                      ? DateFormat('yyyy年MM月dd日の予定')
+                                          .format(_selectedStartDay)
+                                      : '${DateFormat('yyyy年MM月dd日').format(_selectedStartDay)} 〜 ${DateFormat('yyyy年MM月dd日').format(_selectedEndDay)}の予定',
                                   style: TextStyle(
                                     fontSize: 20.0,
                                     fontWeight: FontWeight.bold,
@@ -155,10 +194,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Widget _buildDayContainer(DateTime day, DateTime focusedDay,
       {bool isSelected = false, bool isToday = false}) {
-    List<Map<String, dynamic>> events = _dataManager.getEventsForPeriod(
-      day,
-      day.add(Duration(days: 1)).subtract(Duration(seconds: 1)),
-    );
+    List<Map<String, dynamic>> events = _dataManager.getEventsForDay(day);
+
+    bool isInSelectedRange =
+        day.isAfter(_selectedStartDay.subtract(Duration(days: 1))) &&
+            day.isBefore(_selectedEndDay.add(Duration(days: 1)));
 
     return Container(
       decoration: BoxDecoration(
@@ -166,6 +206,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           right: BorderSide(color: Colors.grey.shade300, width: 0.5),
           bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
         ),
+        color: isInSelectedRange ? Colors.blue.withOpacity(0.1) : null,
       ),
       child: Stack(
         children: [
@@ -182,58 +223,112 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               ),
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ...events.map((event) {
-                  DateTime startDate = DateTime.parse(event['startDateTime']);
-                  DateTime endDate = DateTime.parse(event['endDateTime']);
-                  bool isStart = isSameDay(day, startDate);
-                  bool isEnd = isSameDay(day, endDate);
-                  /*bool isMiddle =
-                      day.isAfter(startDate) && day.isBefore(endDate);*/
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 2.0, vertical: 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Color(event['color'] as int),
-                        borderRadius: BorderRadius.horizontal(
-                          left: isStart ? Radius.circular(4.0) : Radius.zero,
-                          right: isEnd ? Radius.circular(4.0) : Radius.zero,
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(2.0),
-                      child: Text(
-                        isStart
-                            ? (event['type'] == 'task'
-                                ? event['task']
-                                : event['event'])
-                            : '',
-                        style: TextStyle(color: Colors.white, fontSize: 10),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
+          _buildEventOverlay(day, events),
         ],
       ),
     );
   }
 
-  Widget _buildEventList() {
-    List<Map<String, dynamic>> events = _dataManager.getEventsForPeriod(
-      _selectedDay,
-      _selectedDay.add(Duration(days: 1)).subtract(Duration(seconds: 1)),
+  Widget _buildEventOverlay(DateTime day, List<Map<String, dynamic>> events) {
+    return Positioned(
+      bottom: 1,
+      left: 0,
+      right: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: events.map((event) {
+          DateTime startDate = DateTime.parse(event['startDateTime']);
+          DateTime endDate = DateTime.parse(event['endDateTime']);
+          bool isInRange = !day.isBefore(startDate) && !day.isAfter(endDate);
+
+          if (isInRange) {
+            bool isStart = isSameDay(day, startDate);
+            bool isEnd = isSameDay(day, endDate);
+            bool shouldShowLabel = _shouldShowLabel(day, startDate, endDate);
+
+            return Container(
+              margin: EdgeInsets.only(top: 1),
+              height: 16,
+              child: Row(
+                children: [
+                  if (isStart) SizedBox(width: 2),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Color(event['color'] as int),
+                            borderRadius: BorderRadius.horizontal(
+                              left:
+                                  isStart ? Radius.circular(4.0) : Radius.zero,
+                              right: isEnd ? Radius.circular(4.0) : Radius.zero,
+                            ),
+                          ),
+                        ),
+                        if (shouldShowLabel)
+                          Positioned.fill(
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  _getEventDisplayText(event),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (isEnd) SizedBox(width: 2),
+                ],
+              ),
+            );
+          } else {
+            return SizedBox.shrink();
+          }
+        }).toList(),
+      ),
     );
+  }
+
+  bool _shouldShowLabel(DateTime day, DateTime startDate, DateTime endDate) {
+    // 開始日、終了日、月が変わる日にラベルを表示
+    if (isSameDay(day, startDate) || isSameDay(day, endDate) || day.day == 1) {
+      return true;
+    }
+
+    // 予定が1週間以上の場合、週の中間（水曜日）にもラベルを表示
+    int daysBetween = endDate.difference(startDate).inDays;
+    if (daysBetween >= 7) {
+      // 週の中間（水曜日）を計算
+      DateTime weekMidpoint = startDate.add(Duration(days: (daysBetween ~/ 2)));
+      weekMidpoint =
+          weekMidpoint.subtract(Duration(days: weekMidpoint.weekday - 3));
+
+      // 現在の日が週の中間かどうかをチェック
+      return isSameDay(day, weekMidpoint);
+    }
+
+    return false;
+  }
+
+  String _getEventDisplayText(Map<String, dynamic> event) {
+    if (event['isAllDay'] == true) {
+      return '終日: ${event['type'] == 'task' ? event['task'] : event['event']}';
+    } else {
+      return event['type'] == 'task' ? event['task'] : event['event'];
+    }
+  }
+
+  Widget _buildEventList() {
+    List<Map<String, dynamic>> events =
+        _dataManager.getEventsForPeriod(_selectedStartDay, _selectedEndDay);
 
     if (events.isEmpty) {
       return Padding(
@@ -267,7 +362,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   void _showAddEventDialog() {
     final TextEditingController _eventController = TextEditingController();
     final TextEditingController _contentController = TextEditingController();
-    final TextEditingController _dateController = TextEditingController();
+    final TextEditingController _startDateController = TextEditingController();
+    final TextEditingController _endDateController = TextEditingController();
     final TextEditingController _startDateTimeController =
         TextEditingController();
     final TextEditingController _endDateTimeController =
@@ -275,12 +371,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     String selectedType = 'event';
     String selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
     Color selectedColor = Colors.blue;
-    DateTime selectedDate = _selectedDay;
-    DateTime startDateTime = DateTime.now();
-    DateTime endDateTime = DateTime.now().add(Duration(hours: 1));
+    DateTime startDateTime = _selectedStartDay;
+    DateTime endDateTime = _selectedEndDay;
     bool isAllDay = false;
 
-    _dateController.text = DateFormat('yyyy-MM-dd').format(selectedDate);
+    _startDateController.text = DateFormat('yyyy-MM-dd').format(startDateTime);
+    _endDateController.text = DateFormat('yyyy-MM-dd').format(endDateTime);
     _startDateTimeController.text =
         DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
     _endDateTimeController.text =
@@ -305,8 +401,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         selectedType = value!;
                         _eventController.clear();
                         _contentController.clear();
-                        _dateController.text =
-                            DateFormat('yyyy-MM-dd').format(selectedDate);
+                        _startDateController.text =
+                            DateFormat('yyyy-MM-dd').format(startDateTime);
+                        _endDateController.text =
+                            DateFormat('yyyy-MM-dd').format(endDateTime);
                         _startDateTimeController.text =
                             DateFormat('yyyy-MM-dd HH:mm')
                                 .format(startDateTime);
@@ -383,7 +481,47 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         });
                       },
                     ),
-                    if (!isAllDay) ...[
+                    if (isAllDay) ...[
+                      GestureDetector(
+                        onTap: () async {
+                          DateTimeRange? pickedDateRange =
+                              await showDateRangePicker(
+                            context: context,
+                            initialDateRange: DateTimeRange(
+                                start: startDateTime, end: endDateTime),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2101),
+                          );
+                          if (pickedDateRange != null) {
+                            setState(() {
+                              startDateTime = pickedDateRange.start;
+                              endDateTime = pickedDateRange.end;
+                              _startDateController.text =
+                                  DateFormat('yyyy-MM-dd')
+                                      .format(startDateTime);
+                              _endDateController.text =
+                                  DateFormat('yyyy-MM-dd').format(endDateTime);
+                            });
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: Column(
+                            children: [
+                              TextField(
+                                controller: _startDateController,
+                                decoration:
+                                    const InputDecoration(labelText: '開始日'),
+                              ),
+                              TextField(
+                                controller: _endDateController,
+                                decoration:
+                                    const InputDecoration(labelText: '終了日'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else ...[
                       GestureDetector(
                         onTap: () async {
                           DateTime? pickedDateTime = await showDatePicker(
@@ -459,30 +597,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           ),
                         ),
                       ),
-                    ] else ...[
-                      GestureDetector(
-                        onTap: () async {
-                          DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2101),
-                          );
-                          if (pickedDate != null) {
-                            setState(() {
-                              selectedDate = pickedDate;
-                              _dateController.text =
-                                  DateFormat('yyyy-MM-dd').format(selectedDate);
-                            });
-                          }
-                        },
-                        child: AbsorbPointer(
-                          child: TextField(
-                            controller: _dateController,
-                            decoration: const InputDecoration(labelText: '日付'),
-                          ),
-                        ),
-                      ),
                     ],
                   ] else if (selectedType == 'task') ...[
                     TextField(
@@ -526,7 +640,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 onPressed: () {
                   if (_eventController.text.isEmpty ||
                       (selectedType == 'event' &&
-                          _dateController.text.isEmpty) ||
+                          (isAllDay
+                              ? _startDateController.text.isEmpty
+                              : _startDateTimeController.text.isEmpty)) ||
                       (selectedType == 'task' &&
                           (_eventController.text.isEmpty ||
                               selectedSubject.isEmpty ||
@@ -544,8 +660,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     selectedSubject,
                     selectedType,
                     _contentController.text,
-                    isAllDay ? selectedDate : startDateTime,
-                    isAllDay ? null : endDateTime,
+                    isAllDay
+                        ? DateTime.parse(_startDateController.text)
+                        : startDateTime,
+                    isAllDay
+                        ? DateTime.parse(_endDateController.text)
+                            .add(Duration(days: 1))
+                            .subtract(Duration(milliseconds: 1))
+                        : endDateTime,
                     selectedColor,
                     isAllDay,
                   );
@@ -565,7 +687,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     String eventType,
     String content,
     DateTime startDateTime,
-    DateTime? endDateTime,
+    DateTime endDateTime,
     Color color,
     bool isAllDay,
   ) {
@@ -577,16 +699,22 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       'subject': subject,
       'content': content,
       'startDateTime': startDateTime.toIso8601String(),
-      'endDateTime':
-          endDateTime?.toIso8601String() ?? startDateTime.toIso8601String(),
+      'endDateTime': endDateTime.toIso8601String(),
       'startTime': isAllDay ? null : DateFormat('HH:mm').format(startDateTime),
-      'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime!),
+      'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime),
       'color': color.value,
       'isAllDay': isAllDay,
+      'multiday': !isSameDay(startDateTime, endDateTime),
     };
 
     _dataManager.addEvent(event);
 
     setState(() {});
+  }
+
+  bool isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 }
