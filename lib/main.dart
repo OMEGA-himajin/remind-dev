@@ -176,11 +176,17 @@ class DataManager {
   }
 
   Future<void> updateDaySubject(String day, int index, String subject) async {
-    List<String> daySubjects = List<String>.from(_data[day] ?? []);
+    if (_data[day] == null) {
+      _data[day] = List<String>.filled(10, '');
+    }
+    List<String> daySubjects = List<String>.from(_data[day]);
     if (index < daySubjects.length) {
       daySubjects[index] = subject;
     } else {
-      daySubjects.add(subject);
+      while (daySubjects.length <= index) {
+        daySubjects.add('');
+      }
+      daySubjects[index] = subject;
     }
     _data[day] = daySubjects;
     await saveData();

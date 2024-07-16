@@ -222,7 +222,46 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   }
 
   void _showInputDialog(BuildContext context, String day, int index) async {
-    String selectedSubject = '';
+    String? selectedSubject = '';
+    List<String> currentDayList;
+    String dayName;
+    switch (day) {
+      case 'mon':
+        currentDayList = mon;
+        dayName = '月曜日';
+        break;
+      case 'tue':
+        currentDayList = tue;
+        dayName = '火曜日';
+        break;
+      case 'wed':
+        currentDayList = wed;
+        dayName = '水曜日';
+        break;
+      case 'thu':
+        currentDayList = thu;
+        dayName = '木曜日';
+        break;
+      case 'fri':
+        currentDayList = fri;
+        dayName = '金曜日';
+        break;
+      case 'sat':
+        currentDayList = sat;
+        dayName = '土曜日';
+        break;
+      case 'sun':
+        currentDayList = sun;
+        dayName = '日曜日';
+        break;
+      default:
+        currentDayList = [];
+        dayName = '';
+    }
+
+    if (index < currentDayList.length) {
+      selectedSubject = currentDayList[index];
+    }
 
     await showDialog<String>(
       context: context,
@@ -230,54 +269,31 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text('教科を選択してください'),
-              contentPadding: EdgeInsets.fromLTRB(24, 16, 24, 0),
-              content: Container(
-                width: double.infinity,
-                height: 150,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      DropdownButton<String>(
-                        value: selectedSubject,
-                        onChanged: (String? newValue) {
-                          if (newValue != null) {
-                            setState(() {
-                              selectedSubject = newValue;
-                            });
-                          }
-                        },
-                        items: _buildDropdownMenuItems(),
-                        isExpanded: true,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.black,
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: <Widget>[
-                          TextButton(
-                            child: const Text('キャンセル'),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                          TextButton(
-                            child: const Text('保存'),
-                            onPressed: () {
-                              Navigator.of(context).pop(selectedSubject);
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              title: Text('$dayNameの${index + 1}時間目の教科を選択'),
+              content: DropdownButton<String>(
+                value: selectedSubject,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    selectedSubject = newValue;
+                  });
+                },
+                items: _buildDropdownMenuItems(),
+                isExpanded: true,
               ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('キャンセル'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                TextButton(
+                  child: const Text('保存'),
+                  onPressed: () {
+                    Navigator.of(context).pop(selectedSubject);
+                  },
+                ),
+              ],
             );
           },
         );
@@ -292,20 +308,15 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
 
   List<DropdownMenuItem<String>> _buildDropdownMenuItems() {
     Set<String> uniqueSubjects = subjects.toSet();
-
-    uniqueSubjects.remove(''); // 空の選択肢を削除
     List<String> sortedSubjects = uniqueSubjects.toList()..sort();
     sortedSubjects.insert(0, ''); // 空の選択肢を最初に追加
 
     return sortedSubjects.map((String subject) {
       return DropdownMenuItem<String>(
         value: subject,
-        child: Container(
-          width: double.infinity,
-          child: Text(
-            subject.isEmpty ? '選択してください' : subject,
-            style: TextStyle(fontSize: 16),
-          ),
+        child: Text(
+          subject.isEmpty ? '(なし)' : subject,
+          style: TextStyle(fontSize: 16),
         ),
       );
     }).toList();
@@ -334,28 +345,16 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                           if (subjects[index].trim().isEmpty)
                             return Container();
                           return ListTile(
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(subjects[index]),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete),
-                                  onPressed: () async {
-                                    await DataManager()
-                                        .deleteSubject(subjects[index]);
-                                    await _loadData();
-                                    setState(() {});
-                                  },
-                                ),
-                              ],
+                            title: Text(subjects[index]),
+                            trailing: IconButton(
+                              icon: Icon(Icons.delete),
+                              onPressed: () async {
+                                await DataManager()
+                                    .deleteSubject(subjects[index]);
+                                await _loadData();
+                                setState(() {});
+                              },
                             ),
-                            onTap: () {
-                              _addSubjectToDay(
-                                DateTime.now().weekday,
-                                subjects[index],
-                              );
-                            },
                           );
                         },
                       ),
