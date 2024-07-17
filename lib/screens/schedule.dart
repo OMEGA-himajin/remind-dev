@@ -86,41 +86,61 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     children: [
                       Column(
                         children: [
-                          TableCalendar(
-                            firstDay: DateTime.utc(2010, 1, 1),
-                            lastDay: DateTime.utc(2030, 1, 1),
-                            focusedDay: _focusedDay,
-                            selectedDayPredicate: (day) {
-                              return day.isAfter(_selectedStartDay
-                                      .subtract(Duration(days: 1))) &&
-                                  day.isBefore(
-                                      _selectedEndDay.add(Duration(days: 1)));
-                            },
-                            onDaySelected: (selectedDay, focusedDay) {
-                              setState(() {
-                                if (selectedDay.isBefore(_selectedStartDay) ||
-                                    _selectedStartDay == _selectedEndDay) {
-                                  _selectedStartDay = selectedDay;
-                                  _selectedEndDay = selectedDay;
-                                } else if (selectedDay
-                                    .isAfter(_selectedStartDay)) {
-                                  _selectedEndDay = selectedDay;
-                                }
-                                _focusedDay = focusedDay;
-                                _isAddingEvent = true;
-                              });
-                            },
-                            calendarBuilders: CalendarBuilders(
-                              defaultBuilder: (context, day, focusedDay) {
-                                return _buildDayContainer(day, focusedDay);
-                              },
-                              selectedBuilder: (context, day, focusedDay) {
-                                return _buildDayContainer(day, focusedDay,
-                                    isSelected: true);
-                              },
-                              todayBuilder: (context, day, focusedDay) {
-                                return _buildDayContainer(day, focusedDay,
-                                    isToday: true);
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final availableHeight = constraints.maxHeight;
+                                final rowHeight =
+                                    (availableHeight - 80) / 6; // 6週間分のカレンダーを想定
+                                return TableCalendar(
+                                  firstDay: DateTime.utc(2010, 1, 1),
+                                  lastDay: DateTime.utc(2030, 1, 1),
+                                  focusedDay: _focusedDay,
+                                  selectedDayPredicate: (day) {
+                                    return day.isAfter(_selectedStartDay
+                                            .subtract(Duration(days: 1))) &&
+                                        day.isBefore(_selectedEndDay
+                                            .add(Duration(days: 1)));
+                                  },
+                                  onDaySelected: (selectedDay, focusedDay) {
+                                    setState(() {
+                                      if (selectedDay
+                                              .isBefore(_selectedStartDay) ||
+                                          _selectedStartDay ==
+                                              _selectedEndDay) {
+                                        _selectedStartDay = selectedDay;
+                                        _selectedEndDay = selectedDay;
+                                      } else if (selectedDay
+                                          .isAfter(_selectedStartDay)) {
+                                        _selectedEndDay = selectedDay;
+                                      }
+                                      _focusedDay = focusedDay;
+                                      _isAddingEvent = true;
+                                    });
+                                  },
+                                  calendarBuilders: CalendarBuilders(
+                                    defaultBuilder: (context, day, focusedDay) {
+                                      return _buildDayContainer(
+                                          day, focusedDay);
+                                    },
+                                    selectedBuilder:
+                                        (context, day, focusedDay) {
+                                      return _buildDayContainer(day, focusedDay,
+                                          isSelected: true);
+                                    },
+                                    todayBuilder: (context, day, focusedDay) {
+                                      return _buildDayContainer(day, focusedDay,
+                                          isToday: true);
+                                    },
+                                  ),
+                                  rowHeight: rowHeight,
+                                  daysOfWeekHeight: 40,
+                                  headerStyle: HeaderStyle(
+                                    formatButtonVisible: false,
+                                    titleCentered: true,
+                                    titleTextStyle: TextStyle(fontSize: 20),
+                                  ),
+                                );
                               },
                             ),
                           ),
@@ -210,7 +230,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
       child: Stack(
         children: [
-          Center(
+          Positioned(
+            top: 5,
+            left: 5,
             child: Text(
               '${day.day}',
               style: TextStyle(
@@ -223,96 +245,166 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               ),
             ),
           ),
-          _buildEventOverlay(day, events),
+          Positioned(
+            top: 25, // 日付の下にイベントを配置
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildEventOverlay(day, events),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildEventOverlay(DateTime day, List<Map<String, dynamic>> events) {
-    return Positioned(
-      bottom: 1,
-      left: 0,
-      right: 0,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: events.map((event) {
-          DateTime startDate = DateTime.parse(event['startDateTime']);
-          DateTime endDate = DateTime.parse(event['endDateTime']);
-          bool isInRange = !day.isBefore(startDate) && !day.isAfter(endDate);
+    List<Widget> eventWidgets = [];
+    int displayedEvents = 0;
+    bool hasMoreEvents = false;
 
-          if (isInRange) {
-            bool isStart = isSameDay(day, startDate);
-            bool isEnd = isSameDay(day, endDate);
-            bool shouldShowLabel = _shouldShowLabel(day, startDate, endDate);
+    // イベントを期間の長さでソート（長い順）
+    events.sort((a, b) {
+      DateTime startA = DateTime.parse(a['startDateTime']);
+      DateTime endA = DateTime.parse(a['endDateTime']);
+      DateTime startB = DateTime.parse(b['startDateTime']);
+      DateTime endB = DateTime.parse(b['endDateTime']);
+      int durationA = endA.difference(startA).inDays;
+      int durationB = endB.difference(startB).inDays;
+      return durationB.compareTo(durationA);
+    });
 
-            return Container(
-              margin: EdgeInsets.only(top: 1),
-              height: 16,
-              child: Row(
-                children: [
-                  if (isStart) SizedBox(width: 2),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Color(event['color'] as int),
-                            borderRadius: BorderRadius.horizontal(
-                              left:
-                                  isStart ? Radius.circular(4.0) : Radius.zero,
-                              right: isEnd ? Radius.circular(4.0) : Radius.zero,
+    Map<int, DateTime> lastEndDate = {};
+
+    for (var event in events) {
+      if (displayedEvents >= 2) {
+        hasMoreEvents = true;
+        break;
+      }
+
+      DateTime startDate = DateTime.parse(event['startDateTime']);
+      DateTime endDate = DateTime.parse(event['endDateTime']);
+      bool isInRange = !day.isBefore(startDate) && !day.isAfter(endDate);
+
+      if (isInRange) {
+        bool isStart = isSameDay(day, startDate);
+        bool isEnd = isSameDay(day, endDate);
+        bool shouldShowLabel = _shouldShowLabel(day, startDate, endDate);
+
+        int row = 0;
+        while (lastEndDate.containsKey(row) &&
+            lastEndDate[row]!.isAfter(startDate)) {
+          row++;
+        }
+
+        if (row < 2) {
+          double height = 16.0;
+          double top = row * (height + 1);
+
+          eventWidgets.add(
+            Positioned(
+              top: top,
+              left: isStart ? 2 : 0,
+              right: isEnd ? 2 : 0,
+              height: height,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Color(event['color'] as int),
+                  borderRadius: BorderRadius.horizontal(
+                    left: isStart ? Radius.circular(4.0) : Radius.zero,
+                    right: isEnd ? Radius.circular(4.0) : Radius.zero,
+                  ),
+                ),
+                child: shouldShowLabel
+                    ? Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _getEventDisplayText(event),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
-                        if (shouldShowLabel)
-                          Positioned.fill(
-                            child: Center(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  _getEventDisplayText(event),
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (isEnd) SizedBox(width: 2),
-                ],
+                      )
+                    : null,
               ),
-            );
-          } else {
-            return SizedBox.shrink();
-          }
-        }).toList(),
-      ),
+            ),
+          );
+
+          lastEndDate[row] = endDate;
+          displayedEvents++;
+        }
+      }
+    }
+
+    if (hasMoreEvents) {
+      eventWidgets.add(
+        Positioned(
+          bottom: 2,
+          right: 2,
+          child: Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: Colors.grey,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '+',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 2 * (16.0 + 1) + 2, // 2つのイベント + 追加のスペース
+      child: Stack(children: eventWidgets),
     );
   }
 
   bool _shouldShowLabel(DateTime day, DateTime startDate, DateTime endDate) {
-    // 開始日、終了日、月が変わる日にラベルを表示
-    if (isSameDay(day, startDate) || isSameDay(day, endDate) || day.day == 1) {
+    // 開始日または終了日の場合は常にラベルを表示
+    if (isSameDay(day, startDate) || isSameDay(day, endDate)) {
       return true;
     }
 
-    // 予定が1週間以上の場合、週の中間（水曜日）にもラベルを表示
-    int daysBetween = endDate.difference(startDate).inDays;
-    if (daysBetween >= 7) {
-      // 週の中間（水曜日）を計算
-      DateTime weekMidpoint = startDate.add(Duration(days: (daysBetween ~/ 2)));
-      weekMidpoint =
-          weekMidpoint.subtract(Duration(days: weekMidpoint.weekday - 3));
+    // 月初めの場合はラベルを表示
+    if (day.day == 1) {
+      return true;
+    }
 
-      // 現在の日が週の中間かどうかをチェック
-      return isSameDay(day, weekMidpoint);
+    int daysBetween = endDate.difference(startDate).inDays;
+
+    // イベントが2週間以上の場合のみ、中間点のラベル表示を考慮
+    if (daysBetween > 13) {
+      // イベントの中間点を計算
+      DateTime midpoint = startDate.add(Duration(days: daysBetween ~/ 2));
+
+      // 中間点の週の水曜日を計算
+      DateTime weekMidpoint =
+          midpoint.subtract(Duration(days: midpoint.weekday - 3));
+
+      // 現在の日が中間点の週の水曜日で、かつ開始日と終了日の間にある場合にラベルを表示
+      if (isSameDay(day, weekMidpoint) &&
+          day.isAfter(startDate) &&
+          day.isBefore(endDate)) {
+        // 開始日と終了日が異なる週にあることを確認
+        if (weekMidpoint.difference(startDate).inDays >= 7 &&
+            endDate.difference(weekMidpoint).inDays >= 7) {
+          return true;
+        }
+      }
     }
 
     return false;
@@ -679,6 +771,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         },
       ),
     );
+  }
+
+  bool _eventsOverlap(
+      Map<String, dynamic> event1, Map<String, dynamic> event2, DateTime day) {
+    DateTime start1 = DateTime.parse(event1['startDateTime']);
+    DateTime end1 = DateTime.parse(event1['endDateTime']);
+    DateTime start2 = DateTime.parse(event2['startDateTime']);
+    DateTime end2 = DateTime.parse(event2['endDateTime']);
+
+    return (start1.isBefore(end2) || isSameDay(start1, end2)) &&
+        (start2.isBefore(end1) || isSameDay(start2, end1)) &&
+        !day.isBefore(start1.isAfter(start2) ? start1 : start2) &&
+        !day.isAfter(end1.isBefore(end2) ? end1 : end2);
   }
 
   void _addEvent(
