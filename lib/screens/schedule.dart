@@ -412,7 +412,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   String _getEventDisplayText(Map<String, dynamic> event) {
     if (event['isAllDay'] == true) {
-      return '終日: ${event['type'] == 'task' ? event['task'] : event['event']}';
+      return '${event['type'] == 'task' ? event['task'] : event['event']}';
     } else {
       return event['type'] == 'task' ? event['task'] : event['event'];
     }
