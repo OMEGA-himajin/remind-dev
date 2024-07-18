@@ -73,7 +73,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 Navigator.pop(context);
               },
             ),
-            // 他のメニュー項目をここに追加
           ],
         ),
       ),
@@ -90,19 +89,15 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             child: LayoutBuilder(
                               builder: (context, constraints) {
                                 final availableHeight = constraints.maxHeight;
-                                final rowHeight =
-                                    (availableHeight - 80) / 6; // 6週間分のカレンダーを想定
+                                final rowHeight = (availableHeight - 80) / 6;
                                 return TableCalendar(
                                   firstDay: DateTime.utc(2010, 1, 1),
                                   lastDay: DateTime.utc(2030, 1, 1),
                                   focusedDay: _focusedDay,
-                                  selectedDayPredicate: (day) {
-                                    return day.isAfter(_selectedStartDay
-                                            .subtract(Duration(days: 1))) &&
-                                        day.isBefore(_selectedEndDay
-                                            .add(Duration(days: 1)));
-                                  },
-                                  onDaySelected: (selectedDay, focusedDay) {
+                                  onDaySelected: (
+                                    selectedDay,
+                                    focusedDay,
+                                  ) {
                                     setState(() {
                                       if (selectedDay
                                               .isBefore(_selectedStartDay) ||
@@ -118,19 +113,38 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                       _isAddingEvent = true;
                                     });
                                   },
+                                  calendarStyle: CalendarStyle(
+                                    weekendTextStyle:
+                                        TextStyle(color: Colors.red),
+                                  ),
                                   calendarBuilders: CalendarBuilders(
                                     defaultBuilder: (context, day, focusedDay) {
                                       return _buildDayContainer(
                                           day, focusedDay);
                                     },
-                                    selectedBuilder:
-                                        (context, day, focusedDay) {
-                                      return _buildDayContainer(day, focusedDay,
-                                          isSelected: true);
-                                    },
                                     todayBuilder: (context, day, focusedDay) {
                                       return _buildDayContainer(day, focusedDay,
                                           isToday: true);
+                                    },
+                                    dowBuilder: (context, day) {
+                                      if (day.weekday == DateTime.sunday) {
+                                        return Center(
+                                          child: Text(
+                                            DateFormat.E().format(day),
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        );
+                                      }
+                                      if (day.weekday == DateTime.saturday) {
+                                        return Center(
+                                          child: Text(
+                                            DateFormat.E().format(day),
+                                            style:
+                                                TextStyle(color: Colors.blue),
+                                          ),
+                                        );
+                                      }
+                                      return null;
                                     },
                                   ),
                                   rowHeight: rowHeight,
@@ -202,23 +216,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddEventDialog();
-        },
-        child: Icon(Icons.add),
-        tooltip: '追加',
-      ),
     );
   }
 
   Widget _buildDayContainer(DateTime day, DateTime focusedDay,
-      {bool isSelected = false, bool isToday = false}) {
+      {bool isToday = false}) {
     List<Map<String, dynamic>> events = _dataManager.getEventsForDay(day);
 
-    bool isInSelectedRange =
-        day.isAfter(_selectedStartDay.subtract(Duration(days: 1))) &&
-            day.isBefore(_selectedEndDay.add(Duration(days: 1)));
+    Color textColor;
+    if (day.weekday == DateTime.sunday) {
+      textColor = Colors.red;
+    } else if (day.weekday == DateTime.saturday) {
+      textColor = Colors.blue;
+    } else {
+      textColor = isToday ? Colors.white : Colors.black;
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -226,27 +238,30 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           right: BorderSide(color: Colors.grey.shade300, width: 0.5),
           bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
         ),
-        color: isInSelectedRange ? Colors.blue.withOpacity(0.1) : null,
       ),
       child: Stack(
         children: [
           Positioned(
-            top: 5,
-            left: 5,
-            child: Text(
-              '${day.day}',
-              style: TextStyle(
-                fontSize: 16.0,
-                color: isSelected
-                    ? Colors.blue
-                    : isToday
-                        ? Colors.red
-                        : null,
+            top: 2,
+            left: 2,
+            child: Container(
+              padding: EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isToday ? Colors.red : Colors.transparent,
+              ),
+              child: Text(
+                '${day.day}',
+                style: TextStyle(
+                  fontSize: 12.0,
+                  color: textColor,
+                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
           ),
           Positioned(
-            top: 25, // 日付の下にイベントを配置
+            top: 20,
             left: 0,
             right: 0,
             bottom: 0,
@@ -262,7 +277,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     int displayedEvents = 0;
     bool hasMoreEvents = false;
 
-    // イベントを期間の長さでソート（長い順）
     events.sort((a, b) {
       DateTime startA = DateTime.parse(a['startDateTime']);
       DateTime endA = DateTime.parse(a['endDateTime']);
@@ -297,8 +311,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         }
 
         if (row < 2) {
-          double height = 16.0;
-          double top = row * (height + 1);
+          double height = 14.0;
+          double top = row * (height + 1) + 1;
 
           eventWidgets.add(
             Positioned(
@@ -322,7 +336,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             _getEventDisplayText(event),
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 9,
+                              fontSize: 8,
                               fontWeight: FontWeight.bold,
                             ),
                             textAlign: TextAlign.center,
@@ -346,8 +360,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           bottom: 2,
           right: 2,
           child: Container(
-            width: 16,
-            height: 16,
+            width: 14,
+            height: 14,
             decoration: BoxDecoration(
               color: Colors.grey,
               shape: BoxShape.circle,
@@ -357,7 +371,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 '+',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -368,38 +382,30 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
 
     return Container(
-      height: 2 * (16.0 + 1) + 2, // 2つのイベント + 追加のスペース
+      height: 2 * (14.0 + 1) + 2,
       child: Stack(children: eventWidgets),
     );
   }
 
   bool _shouldShowLabel(DateTime day, DateTime startDate, DateTime endDate) {
-    // 開始日または終了日の場合は常にラベルを表示
     if (isSameDay(day, startDate) || isSameDay(day, endDate)) {
       return true;
     }
 
-    // 月初めの場合はラベルを表示
     if (day.day == 1) {
       return true;
     }
 
     int daysBetween = endDate.difference(startDate).inDays;
 
-    // イベントが2週間以上の場合のみ、中間点のラベル表示を考慮
     if (daysBetween > 13) {
-      // イベントの中間点を計算
       DateTime midpoint = startDate.add(Duration(days: daysBetween ~/ 2));
-
-      // 中間点の週の水曜日を計算
       DateTime weekMidpoint =
           midpoint.subtract(Duration(days: midpoint.weekday - 3));
 
-      // 現在の日が中間点の週の水曜日で、かつ開始日と終了日の間にある場合にラベルを表示
       if (isSameDay(day, weekMidpoint) &&
           day.isAfter(startDate) &&
           day.isBefore(endDate)) {
-        // 開始日と終了日が異なる週にあることを確認
         if (weekMidpoint.difference(startDate).inDays >= 7 &&
             endDate.difference(weekMidpoint).inDays >= 7) {
           return true;
@@ -771,19 +777,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         },
       ),
     );
-  }
-
-  bool _eventsOverlap(
-      Map<String, dynamic> event1, Map<String, dynamic> event2, DateTime day) {
-    DateTime start1 = DateTime.parse(event1['startDateTime']);
-    DateTime end1 = DateTime.parse(event1['endDateTime']);
-    DateTime start2 = DateTime.parse(event2['startDateTime']);
-    DateTime end2 = DateTime.parse(event2['endDateTime']);
-
-    return (start1.isBefore(end2) || isSameDay(start1, end2)) &&
-        (start2.isBefore(end1) || isSameDay(start2, end1)) &&
-        !day.isBefore(start1.isAfter(start2) ? start1 : start2) &&
-        !day.isAfter(end1.isBefore(end2) ? end1 : end2);
   }
 
   void _addEvent(
