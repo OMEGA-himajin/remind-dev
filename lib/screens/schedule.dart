@@ -120,10 +120,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   calendarBuilders: CalendarBuilders(
                                     defaultBuilder: (context, day, focusedDay) {
                                       return _buildDayContainer(
-                                          day, focusedDay);
+                                          day, focusedDay, rowHeight);
                                     },
                                     todayBuilder: (context, day, focusedDay) {
-                                      return _buildDayContainer(day, focusedDay,
+                                      return _buildDayContainer(
+                                          day, focusedDay, rowHeight,
                                           isToday: true);
                                     },
                                     dowBuilder: (context, day) {
@@ -219,63 +220,65 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  Widget _buildDayContainer(DateTime day, DateTime focusedDay,
-      {bool isToday = false}) {
-    List<Map<String, dynamic>> events = _dataManager.getEventsForDay(day);
+  Widget _buildDayContainer(DateTime day, DateTime focusedDay, double cellHeight, {bool isToday = false}) {
+  List<Map<String, dynamic>> events = _dataManager.getEventsForDay(day);
 
-    Color textColor;
-    if (day.weekday == DateTime.sunday) {
-      textColor = Colors.red;
-    } else if (day.weekday == DateTime.saturday) {
-      textColor = Colors.blue;
-    } else {
-      textColor = isToday ? Colors.white : Colors.black;
-    }
+  Color textColor;
+  if (day.weekday == DateTime.sunday) {
+    textColor = Colors.red;
+  } else if (day.weekday == DateTime.saturday) {
+    textColor = Colors.blue;
+  } else {
+    textColor = isToday ? Colors.white : Colors.black;
+  }
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.grey.shade300, width: 0.5),
-          bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
-        ),
+  return Container(
+    height: cellHeight,
+    decoration: BoxDecoration(
+      border: Border(
+        right: BorderSide(color: Colors.grey.shade300, width: 0.5),
+        bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 2,
-            left: 2,
-            child: Container(
-              padding: EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isToday ? Colors.red : Colors.transparent,
-              ),
-              child: Text(
-                '${day.day}',
-                style: TextStyle(
-                  fontSize: 12.0,
-                  color: textColor,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                ),
+    ),
+    child: Stack(
+      children: [
+        Positioned(
+          top: 2,
+          left: 2,
+          child: Container(
+            padding: EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isToday ? Colors.red : Colors.transparent,
+            ),
+            child: Text(
+              '${day.day}',
+              style: TextStyle(
+                fontSize: 12.0,
+                color: textColor,
+                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
-          Positioned(
-            top: 20,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildEventOverlay(day, events),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        Positioned(
+          top: 20,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildEventOverlay(day, events, cellHeight),
+        ),
+      ],
+    ),
+  );
+}
 
-  Widget _buildEventOverlay(DateTime day, List<Map<String, dynamic>> events) {
+  Widget _buildEventOverlay(
+      DateTime day, List<Map<String, dynamic>> events, double cellHeight) {
     List<Widget> eventWidgets = [];
-    int displayedEvents = 0;
-    bool hasMoreEvents = false;
+    Map<String, int> eventRows = {};
+    int maxRows =
+        ((cellHeight - 20) / 16).floor(); // セルの高さから日付の高さを引き、1行の高さ(16)で割る
 
     events.sort((a, b) {
       DateTime startA = DateTime.parse(a['startDateTime']);
@@ -287,102 +290,71 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       return durationB.compareTo(durationA);
     });
 
-    Map<int, DateTime> lastEndDate = {};
-
     for (var event in events) {
-      if (displayedEvents >= 2) {
-        hasMoreEvents = true;
-        break;
-      }
-
       DateTime startDate = DateTime.parse(event['startDateTime']);
       DateTime endDate = DateTime.parse(event['endDateTime']);
       bool isInRange = !day.isBefore(startDate) && !day.isAfter(endDate);
 
       if (isInRange) {
+        String eventId = event['id'];
         bool isStart = isSameDay(day, startDate);
         bool isEnd = isSameDay(day, endDate);
         bool shouldShowLabel = _shouldShowLabel(day, startDate, endDate);
 
-        int row = 0;
-        while (lastEndDate.containsKey(row) &&
-            lastEndDate[row]!.isAfter(startDate)) {
-          row++;
+        if (!eventRows.containsKey(eventId)) {
+          int row = 0;
+          while (eventRows.containsValue(row) && row < maxRows) {
+            row++;
+          }
+          if (row < maxRows) {
+            eventRows[eventId] = row;
+          } else {
+            continue; // スキップして次のイベントへ
+          }
         }
 
-        if (row < 2) {
-          double height = 14.0;
-          double top = row * (height + 1) + 1;
+        int row = eventRows[eventId]!;
+        double height = 14.0;
+        double top = row * (height + 1) + 1;
 
-          eventWidgets.add(
-            Positioned(
-              top: top,
-              left: isStart ? 2 : 0,
-              right: isEnd ? 2 : 0,
-              height: height,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Color(event['color'] as int),
-                  borderRadius: BorderRadius.horizontal(
-                    left: isStart ? Radius.circular(4.0) : Radius.zero,
-                    right: isEnd ? Radius.circular(4.0) : Radius.zero,
-                  ),
+        eventWidgets.add(
+          Positioned(
+            top: top,
+            left: isStart ? 2 : 0,
+            right: isEnd ? 2 : 0,
+            height: height,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Color(event['color'] as int),
+                borderRadius: BorderRadius.horizontal(
+                  left: isStart ? Radius.circular(4.0) : Radius.zero,
+                  right: isEnd ? Radius.circular(4.0) : Radius.zero,
                 ),
-                child: shouldShowLabel
-                    ? Center(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            _getEventDisplayText(event),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                    : null,
               ),
+              child: shouldShowLabel
+                  ? Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _getEventDisplayText(event),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  : null,
             ),
-          );
-
-          lastEndDate[row] = endDate;
-          displayedEvents++;
-        }
+          ),
+        );
       }
     }
 
-    if (hasMoreEvents) {
-      eventWidgets.add(
-        Positioned(
-          bottom: 2,
-          right: 2,
-          child: Container(
-            width: 14,
-            height: 14,
-            decoration: BoxDecoration(
-              color: Colors.grey,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '+',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     return Container(
-      height: 2 * (14.0 + 1) + 2,
+      height: cellHeight - 20, // 日付の高さを引く
       child: Stack(children: eventWidgets),
     );
   }
