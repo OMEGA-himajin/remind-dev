@@ -176,6 +176,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             }
                           },
                           child: Container(
+                            height: 300,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.vertical(
@@ -185,7 +186,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   color: Colors.grey.withOpacity(0.5),
                                   spreadRadius: 5,
                                   blurRadius: 7,
-                                  offset: Offset(0, 3),
+                                  offset: Offset(0, -3),
                                 ),
                               ],
                             ),
@@ -195,10 +196,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   height: 25,
                                   child: Center(
                                     child: Container(
-                                      width: 40,
-                                      height: 5,
+                                      width: 120,
+                                      height: 6,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey[300],
+                                        color: Color.fromARGB(255, 179, 177, 177),
                                         borderRadius:
                                             BorderRadius.circular(2.5),
                                       ),
@@ -206,7 +207,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   ),
                                 ),
                                 Expanded(
-                                  child: Container(
+                                  child: Padding(
                                     padding: EdgeInsets.all(16.0),
                                     child: Column(
                                       crossAxisAlignment:
