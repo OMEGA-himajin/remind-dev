@@ -176,35 +176,70 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             }
                           },
                           child: Container(
-                            height: 300,
-                            padding: EdgeInsets.all(16.0),
-                            color: Colors.white,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(20)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.5),
+                                  spreadRadius: 5,
+                                  blurRadius: 7,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text(
-                                  _selectedStartDay == _selectedEndDay
-                                      ? DateFormat('yyyy年MM月dd日の予定')
-                                          .format(_selectedStartDay)
-                                      : '${DateFormat('yyyy年MM月dd日').format(_selectedStartDay)} 〜 ${DateFormat('yyyy年MM月dd日').format(_selectedEndDay)}の予定',
-                                  style: TextStyle(
-                                    fontSize: 20.0,
-                                    fontWeight: FontWeight.bold,
+                                Container(
+                                  height: 25,
+                                  child: Center(
+                                    child: Container(
+                                      width: 40,
+                                      height: 5,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[300],
+                                        borderRadius:
+                                            BorderRadius.circular(2.5),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                _buildEventList(),
-                                SizedBox(height: 16.0),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    _showAddEventDialog();
-                                  },
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.add),
-                                      SizedBox(width: 8.0),
-                                      Text('予定を追加'),
-                                    ],
+                                Expanded(
+                                  child: Container(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          _selectedStartDay == _selectedEndDay
+                                              ? DateFormat('yyyy年MM月dd日の予定')
+                                                  .format(_selectedStartDay)
+                                              : '${DateFormat('yyyy年MM月dd日').format(_selectedStartDay)} 〜 ${DateFormat('yyyy年MM月dd日').format(_selectedEndDay)}の予定',
+                                          style: TextStyle(
+                                            fontSize: 20.0,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        _buildEventList(),
+                                        SizedBox(height: 16.0),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            _showAddEventDialog();
+                                          },
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.add),
+                                              SizedBox(width: 8.0),
+                                              Text('予定を追加'),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
@@ -220,58 +255,60 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  Widget _buildDayContainer(DateTime day, DateTime focusedDay, double cellHeight, {bool isToday = false}) {
-  List<Map<String, dynamic>> events = _dataManager.getEventsForDay(day);
+  Widget _buildDayContainer(
+      DateTime day, DateTime focusedDay, double cellHeight,
+      {bool isToday = false}) {
+    List<Map<String, dynamic>> events = _dataManager.getEventsForDay(day);
 
-  Color textColor;
-  if (day.weekday == DateTime.sunday) {
-    textColor = Colors.red;
-  } else if (day.weekday == DateTime.saturday) {
-    textColor = Colors.blue;
-  } else {
-    textColor = isToday ? Colors.white : Colors.black;
-  }
+    Color textColor;
+    if (day.weekday == DateTime.sunday) {
+      textColor = Colors.red;
+    } else if (day.weekday == DateTime.saturday) {
+      textColor = Colors.blue;
+    } else {
+      textColor = isToday ? Colors.white : Colors.black;
+    }
 
-  return Container(
-    height: cellHeight,
-    decoration: BoxDecoration(
-      border: Border(
-        right: BorderSide(color: Colors.grey.shade300, width: 0.5),
-        bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+    return Container(
+      height: cellHeight,
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(color: Colors.grey.shade300, width: 0.5),
+          bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+        ),
       ),
-    ),
-    child: Stack(
-      children: [
-        Positioned(
-          top: 2,
-          left: 2,
-          child: Container(
-            padding: EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isToday ? Colors.red : Colors.transparent,
-            ),
-            child: Text(
-              '${day.day}',
-              style: TextStyle(
-                fontSize: 12.0,
-                color: textColor,
-                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+      child: Stack(
+        children: [
+          Positioned(
+            top: 2,
+            left: 2,
+            child: Container(
+              padding: EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isToday ? Colors.red : Colors.transparent,
+              ),
+              child: Text(
+                '${day.day}',
+                style: TextStyle(
+                  fontSize: 12.0,
+                  color: textColor,
+                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          top: 20,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _buildEventOverlay(day, events, cellHeight),
-        ),
-      ],
-    ),
-  );
-}
+          Positioned(
+            top: 20,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildEventOverlay(day, events, cellHeight),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildEventOverlay(
       DateTime day, List<Map<String, dynamic>> events, double cellHeight) {

@@ -69,6 +69,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               value: times,
               onChanged: (value) async {
                 if (value != null) {
+                  await DataManager().saveData();
                   await DataManager().updateTimes(value);
                   await _loadData();
                 }
@@ -119,12 +120,6 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 await DataManager().updateSundayEnabled(value);
                 await _loadData();
               },
-            ),
-            TextButton(
-              onPressed: () async {
-                await DataManager().saveData();
-              },
-              child: const Text('時間割を保存'),
             ),
           ],
         ),
