@@ -9,10 +9,7 @@ dependencies:
   flutter:
     sdk: flutter
   path_provider: ^2.0.9
-  firebase_core: ^3.0.0
-  firebase_auth: ^5.0.0
   cupertino_icons: ^1.0.6
-  cloud_firestore: ^5.0.1
   table_calendar: ^3.1.0
   shared_preferences: ^2.0.15
   shared_preferences_web: ^2.3.0
