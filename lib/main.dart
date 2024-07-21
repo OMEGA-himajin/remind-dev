@@ -8,8 +8,6 @@ import 'screens/timetable.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print('Firebase initialized successfully');
-  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
