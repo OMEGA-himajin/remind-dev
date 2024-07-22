@@ -5,60 +5,86 @@ import 'screens/home.dart';
 import 'screens/items.dart';
 import 'screens/schedule.dart' as schedule;
 import 'screens/timetable.dart';
-import 'package:provider/provider.dart';
 
-void main() {
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeNotifier(),
-      child: MyApp(),
-    ),
-  );
-}
-
-ThemeData lightTheme = ThemeData(
-  brightness: Brightness.light,
-  primarySwatch: Colors.blue,
-  // 他のライトモード用のスタイル設定
-);
-
-ThemeData darkTheme = ThemeData(
-  brightness: Brightness.dark,
-  primarySwatch: Colors.blue,
-  // 他のダークモード用のスタイル設定
-);
-
-class ThemeNotifier extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light;
-
-  ThemeMode get themeMode => _themeMode;
-
-  void toggleTheme() {
-    _themeMode =
-        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    notifyListeners();
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? themeModeString = prefs.getString('themeMode');
+  ThemeMode themeMode;
+  if (themeModeString == 'ThemeMode.light') {
+    themeMode = ThemeMode.light;
+  } else if (themeModeString == 'ThemeMode.dark') {
+    themeMode = ThemeMode.dark;
+  } else {
+    themeMode = ThemeMode.system;
   }
+  runApp(MyApp(initialThemeMode: themeMode));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
+  final ThemeMode initialThemeMode;
+
+  const MyApp({super.key, required this.initialThemeMode});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late ThemeMode _themeMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeMode = widget.initialThemeMode;
+  }
+
+  Future<void> _changeThemeMode(ThemeMode newThemeMode) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _themeMode = newThemeMode;
+    });
+    await prefs.setString('themeMode', newThemeMode.toString());
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeNotifier>(
-      builder: (context, themeNotifier, child) {
-        return MaterialApp(
-          title: 'タイトル',
-          theme: lightTheme,
-          darkTheme: darkTheme,
-          themeMode: themeNotifier.themeMode,
-          home: const MyStatefulWidget(),
-        );
-      },
+    return MaterialApp(
+      title: 'タイトル',
+      theme: ThemeData(
+        brightness: Brightness.light,
+        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.light(
+          primary: Colors.blue,
+          secondary: Colors.blueAccent,
+          background: Colors.white,
+          surface: Colors.white,
+          onBackground: Colors.black,
+          onSurface: Colors.black,
+        ),
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.dark(
+          primary: Colors.blue,
+          secondary: Colors.blueAccent,
+          background: Colors.grey[900]!,
+          surface: Colors.grey[800]!,
+          onBackground: Colors.white,
+          onSurface: Colors.white,
+        ),
+      ),
+      themeMode: _themeMode,
+      home: MyStatefulWidget(onThemeModeChanged: _changeThemeMode),
     );
   }
 }
 
 class MyStatefulWidget extends StatefulWidget {
-  const MyStatefulWidget({super.key});
+  final Function(ThemeMode) onThemeModeChanged;
+
+  const MyStatefulWidget({super.key, required this.onThemeModeChanged});
 
   @override
   State<MyStatefulWidget> createState() => _MyStatefulWidgetState();
@@ -83,6 +109,10 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text(_getAppBarTitle()),
+      ),
+      drawer: _buildCommonDrawer(context),
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -90,18 +120,184 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'ホーム'),
           BottomNavigationBarItem(icon: Icon(Icons.table_view), label: '時間割'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.library_books), label: '持ち物'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month), label: 'スケジュール'),
+          BottomNavigationBarItem(icon: Icon(Icons.library_books), label: '持ち物'),
+          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'スケジュール'),
         ],
         type: BottomNavigationBarType.fixed,
       ),
     );
   }
+
+  String _getAppBarTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return 'ホーム';
+      case 1:
+        return '時間割';
+      case 2:
+        return '持ち物';
+      case 3:
+        return 'スケジュール';
+      default:
+        return '';
+    }
+  }
+
+  Widget _buildCommonDrawer(BuildContext context) {
+    ThemeMode currentThemeMode = Theme.of(context).brightness == Brightness.dark
+        ? ThemeMode.dark
+        : ThemeMode.light;
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      currentThemeMode = ThemeMode.system;
+    }
+
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: <Widget>[
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Colors.blue,
+            ),
+            child: Text(
+              'メニュー',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: Icon(Icons.home),
+            title: Text('ホーム'),
+            onTap: () {
+              _onItemTapped(0);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.table_view),
+            title: Text('時間割'),
+            onTap: () {
+              _onItemTapped(1);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.library_books),
+            title: Text('持ち物'),
+            onTap: () {
+              _onItemTapped(2);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.calendar_month),
+            title: Text('スケジュール'),
+            onTap: () {
+              _onItemTapped(3);
+              Navigator.pop(context);
+            },
+          ),
+          Divider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('テーマ', style: TextStyle(fontSize: 16)),
+                DropdownButton<ThemeMode>(
+                  value: currentThemeMode,
+                  onChanged: (ThemeMode? newValue) {
+                    if (newValue != null) {
+                      widget.onThemeModeChanged(newValue);
+                    }
+                  },
+                  items: [
+                    DropdownMenuItem(
+                      value: ThemeMode.system,
+                      child: Text('システムテーマ'),
+                    ),
+                    DropdownMenuItem(
+                      value: ThemeMode.light,
+                      child: Text('ライトテーマ'),
+                    ),
+                    DropdownMenuItem(
+                      value: ThemeMode.dark,
+                      child: Text('ダークテーマ'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_selectedIndex == 1) ...[
+            Divider(),
+            _buildTimetableSpecificMenuItems(context),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimetableSpecificMenuItems(BuildContext context) {
+    return Column(
+      children: [
+        ListTile(
+          title: Text("教科の追加"),
+          trailing: Icon(Icons.add),
+          onTap: () {
+            Navigator.pop(context);
+            showAddSubjectDialog(context);
+          },
+        ),
+        ListTile(
+          title: Text("時間数の変更"),
+          trailing: Icon(Icons.access_time),
+          onTap: () {
+            Navigator.pop(context);
+            showChangeTimesDialog(context);
+          },
+        ),
+        StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return Column(
+              children: [
+                SwitchListTile(
+                  title: Text('土曜日を表示する'),
+                  value: DataManager().getSaturdayEnabled(),
+                  onChanged: (bool value) {
+                    Navigator.pop(context);
+                    DataManager().updateSaturdayEnabled(value);
+                    setState(() {});
+                  },
+                ),
+                SwitchListTile(
+                  title: Text('日曜日を表示する'),
+                  value: DataManager().getSundayEnabled(),
+                  onChanged: (bool value) {
+                    Navigator.pop(context);
+                    DataManager().updateSundayEnabled(value);
+                    setState(() {});
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void showAddSubjectDialog(BuildContext context) {
+    // TimeTableScreenのshowAddSubjectDialogメソッドの内容をここに実装
+  }
+
+  void showChangeTimesDialog(BuildContext context) {
+    // TimeTableScreenのshowChangeTimesDialogメソッドの内容をここに実装
+  }
 }
 
-// データ管理のクラス
 class DataManager {
   static final DataManager _instance = DataManager._internal();
 
@@ -200,6 +396,14 @@ class DataManager {
     await saveData();
   }
 
+  bool getSaturdayEnabled() {
+    return _data['enable_sat'] ?? true;
+  }
+
+  bool getSundayEnabled() {
+    return _data['enable_sun'] ?? true;
+  }
+
   Future<void> updateDaySubject(String day, int index, String subject) async {
     if (_data[day] == null) {
       _data[day] = List<String>.filled(10, '');
@@ -226,17 +430,14 @@ class DataManager {
     List<Map<String, dynamic>> events = [];
     String key = day.toIso8601String().split('T')[0];
 
-    // 当日の予定を追加
     events.addAll(_events[key] ?? []);
 
-    // multidayがtrueの予定も追加
     _events.forEach((dateKey, dateEvents) {
       dateEvents.forEach((event) {
         DateTime startDate = DateTime.parse(event['startDateTime']);
         DateTime endDate = DateTime.parse(event['endDateTime']);
         if (day.isAfter(startDate.subtract(Duration(days: 1))) &&
             day.isBefore(endDate.add(Duration(days: 1)))) {
-          // 既に追加されていない場合のみ追加
           if (!events.any((e) => e['id'] == event['id'])) {
             events.add(event);
           }
@@ -253,7 +454,6 @@ class DataManager {
       _events[key] = [];
     }
 
-    // multidayフラグを設定
     DateTime startDate = DateTime.parse(event['startDateTime']);
     DateTime endDate = DateTime.parse(event['endDateTime']);
     event['multiday'] = !isSameDay(startDate, endDate);
@@ -266,18 +466,15 @@ class DataManager {
       String oldKey, Map<String, dynamic> updatedEvent) async {
     String newKey = updatedEvent['startDateTime'].split('T')[0];
 
-    // 古いイベントを削除
     _events[oldKey]?.removeWhere((e) => e['id'] == updatedEvent['id']);
     if (_events[oldKey]?.isEmpty ?? false) {
       _events.remove(oldKey);
     }
 
-    // multidayフラグを更新
     DateTime startDate = DateTime.parse(updatedEvent['startDateTime']);
     DateTime endDate = DateTime.parse(updatedEvent['endDateTime']);
     updatedEvent['multiday'] = !isSameDay(startDate, endDate);
 
-    // 新しいイベントを追加
     if (_events[newKey] == null) {
       _events[newKey] = [];
     }
@@ -301,12 +498,12 @@ class DataManager {
         day = day.add(Duration(days: 1))) {
       events.addAll(getEventsForDay(day));
     }
-    return events.toSet().toList(); // 重複を除去
+    return events.toSet().toList();
   }
 
   bool isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
         date1.month == date2.month &&
-        date1.day == date2.day;
+        date2.day == date2.day;
   }
 }

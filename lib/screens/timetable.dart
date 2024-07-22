@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
-import 'package:provider/provider.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
 
   @override
   _TimeTableScreenState createState() => _TimeTableScreenState();
+
+  void showChangeTimesDialog(BuildContext context) {}
 }
 
 class _TimeTableScreenState extends State<TimeTableScreen> {
@@ -55,76 +56,6 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('時間割'),
-      ),
-      drawer: Drawer(
-        elevation: 0,
-        child: ListView(
-          children: <Widget>[
-            const DrawerHeader(
-              child: Text('Drawer Header'),
-            ),
-            const Text('時間数を選択してください'),
-            DropdownButton<int>(
-              value: times,
-              onChanged: (value) async {
-                if (value != null) {
-                  await DataManager().saveData();
-                  await DataManager().updateTimes(value);
-                  await _loadData();
-                }
-              },
-              items: List.generate(
-                10,
-                (index) => DropdownMenuItem<int>(
-                  value: index + 1,
-                  child: Text(
-                    '${index + 1}時間',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-              isExpanded: true,
-              underline: Container(
-                height: 2,
-                color: Colors.black,
-              ),
-              dropdownColor: Colors.white,
-              style: const TextStyle(color: Colors.black),
-              icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-              elevation: 16,
-              hint: const Text(
-                '時間数を選択してください',
-                style: TextStyle(fontSize: 16, color: Colors.black),
-              ),
-            ),
-            ListTile(
-              title: const Text("教科の追加"),
-              trailing: const Icon(Icons.add),
-              onTap: () {
-                _showAddSubjectDialog(context);
-              },
-            ),
-            SwitchListTile(
-              title: const Text('土曜日を表示する'),
-              value: _saturday,
-              onChanged: (bool value) async {
-                await DataManager().updateSaturdayEnabled(value);
-                await _loadData();
-              },
-            ),
-            SwitchListTile(
-              title: const Text('日曜日を表示する'),
-              value: _sunday,
-              onChanged: (bool value) async {
-                await DataManager().updateSundayEnabled(value);
-                await _loadData();
-              },
-            ),
-          ],
-        ),
-      ),
       backgroundColor: const Color.fromARGB(255, 5, 53, 8),
       body: Center(
         child: DefaultTextStyle(
@@ -318,7 +249,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     }).toList();
   }
 
-  void _showAddSubjectDialog(BuildContext context) async {
+  void showAddSubjectDialog(BuildContext context) async {
     TextEditingController textEditingController = TextEditingController();
 
     await showDialog<String>(
@@ -403,34 +334,47 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     );
   }
 
-  void _addSubjectToDay(int weekday, String subjectName) async {
-    String day;
-    switch (weekday) {
-      case DateTime.monday:
-        day = 'mon';
-        break;
-      case DateTime.tuesday:
-        day = 'tue';
-        break;
-      case DateTime.wednesday:
-        day = 'wed';
-        break;
-      case DateTime.thursday:
-        day = 'thu';
-        break;
-      case DateTime.friday:
-        day = 'fri';
-        break;
-      case DateTime.saturday:
-        day = 'sat';
-        break;
-      case DateTime.sunday:
-        day = 'sun';
-        break;
-      default:
-        return;
-    }
-    await DataManager().updateDaySubject(day, times, subjectName);
+  void showChangeTimesDialog(BuildContext context) async {
+    await showDialog<int>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('時間数を選択してください'),
+          content: DropdownButton<int>(
+            value: times,
+            onChanged: (value) async {
+              if (value != null) {
+                await DataManager().updateTimes(value);
+                await _loadData();
+                Navigator.of(context).pop();
+              }
+            },
+            items: List.generate(
+              10,
+              (index) => DropdownMenuItem<int>(
+                value: index + 1,
+                child: Text(
+                  '${index + 1}時間',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void updateSaturdayEnabled(bool value) async {
+    await DataManager().updateSaturdayEnabled(value);
     await _loadData();
   }
+
+  void updateSundayEnabled(bool value) async {
+    await DataManager().updateSundayEnabled(value);
+    await _loadData();
+  }
+
+  bool get saturday => _saturday;
+  bool get sunday => _sunday;
 }

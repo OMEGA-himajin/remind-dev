@@ -3,6 +3,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import '../main.dart';
+import 'package:flutter/material.dart' show ThemeData, TextTheme;
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -39,43 +40,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    final textTheme = theme.textTheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('スケジュール'),
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.blue,
-              ),
-              child: Text(
-                'メニュー',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
-              ),
-            ),
-            ListTile(
-              leading: Icon(Icons.home),
-              title: Text('ホーム'),
-              onTap: () {
-                Navigator.pushReplacementNamed(context, '/');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.schedule),
-              title: Text('スケジュール'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : Column(
@@ -116,15 +85,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   calendarStyle: CalendarStyle(
                                     weekendTextStyle:
                                         TextStyle(color: Colors.red),
+                                    defaultTextStyle: textTheme.bodyMedium!
+                                        .copyWith(color: primaryColor),
                                   ),
                                   calendarBuilders: CalendarBuilders(
                                     defaultBuilder: (context, day, focusedDay) {
-                                      return _buildDayContainer(
-                                          day, focusedDay, rowHeight);
+                                      return _buildDayContainer(day, focusedDay,
+                                          rowHeight, primaryColor, textTheme);
                                     },
                                     todayBuilder: (context, day, focusedDay) {
-                                      return _buildDayContainer(
-                                          day, focusedDay, rowHeight,
+                                      return _buildDayContainer(day, focusedDay,
+                                          rowHeight, primaryColor, textTheme,
                                           isToday: true);
                                     },
                                     dowBuilder: (context, day) {
@@ -145,7 +116,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                           ),
                                         );
                                       }
-                                      return null;
+                                      return Center(
+                                        child: Text(
+                                          DateFormat.E().format(day),
+                                          style: textTheme.bodyMedium!
+                                              .copyWith(color: primaryColor),
+                                        ),
+                                      );
                                     },
                                   ),
                                   rowHeight: rowHeight,
@@ -153,7 +130,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   headerStyle: HeaderStyle(
                                     formatButtonVisible: false,
                                     titleCentered: true,
-                                    titleTextStyle: TextStyle(fontSize: 20),
+                                    titleTextStyle: textTheme.titleLarge!
+                                        .copyWith(color: primaryColor),
                                   ),
                                 );
                               },
@@ -199,7 +177,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                       width: 120,
                                       height: 6,
                                       decoration: BoxDecoration(
-                                        color: Color.fromARGB(255, 179, 177, 177),
+                                        color:
+                                            Color.fromARGB(255, 179, 177, 177),
                                         borderRadius:
                                             BorderRadius.circular(2.5),
                                       ),
@@ -256,8 +235,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  Widget _buildDayContainer(
-      DateTime day, DateTime focusedDay, double cellHeight,
+  Widget _buildDayContainer(DateTime day, DateTime focusedDay,
+      double cellHeight, Color primaryColor, TextTheme textTheme,
       {bool isToday = false}) {
     List<Map<String, dynamic>> events = _dataManager.getEventsForDay(day);
 
@@ -267,7 +246,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     } else if (day.weekday == DateTime.saturday) {
       textColor = Colors.blue;
     } else {
-      textColor = isToday ? Colors.white : Colors.black;
+      textColor = isToday ? Colors.white : primaryColor;
     }
 
     return Container(
@@ -287,12 +266,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               padding: EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isToday ? Colors.red : Colors.transparent,
+                color: isToday ? primaryColor : Colors.transparent,
               ),
               child: Text(
                 '${day.day}',
-                style: TextStyle(
-                  fontSize: 12.0,
+                style: textTheme.bodyMedium!.copyWith(
                   color: textColor,
                   fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                 ),
