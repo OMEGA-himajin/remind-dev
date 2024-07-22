@@ -5,23 +5,54 @@ import 'screens/home.dart';
 import 'screens/items.dart';
 import 'screens/schedule.dart' as schedule;
 import 'screens/timetable.dart';
+import 'package:provider/provider.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+void main() {
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeNotifier(),
+      child: MyApp(),
+    ),
+  );
+}
+
+ThemeData lightTheme = ThemeData(
+  brightness: Brightness.light,
+  primarySwatch: Colors.blue,
+  // 他のライトモード用のスタイル設定
+);
+
+ThemeData darkTheme = ThemeData(
+  brightness: Brightness.dark,
+  primarySwatch: Colors.blue,
+  // 他のダークモード用のスタイル設定
+);
+
+class ThemeNotifier extends ChangeNotifier {
+  ThemeMode _themeMode = ThemeMode.light;
+
+  ThemeMode get themeMode => _themeMode;
+
+  void toggleTheme() {
+    _themeMode =
+        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    notifyListeners();
+  }
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'タイトル',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const MyStatefulWidget(),
+    return Consumer<ThemeNotifier>(
+      builder: (context, themeNotifier, child) {
+        return MaterialApp(
+          title: 'タイトル',
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: themeNotifier.themeMode,
+          home: const MyStatefulWidget(),
+        );
+      },
     );
   }
 }

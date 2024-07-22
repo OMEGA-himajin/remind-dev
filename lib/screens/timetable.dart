@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
+import 'package:provider/provider.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
