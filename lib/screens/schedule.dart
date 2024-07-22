@@ -99,31 +99,23 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                           isToday: true);
                                     },
                                     dowBuilder: (context, day) {
-                                      if (day.weekday == DateTime.sunday) {
-                                        return Center(
-                                          child: Text(
-                                            DateFormat.E().format(day),
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                        );
-                                      }
-                                      if (day.weekday == DateTime.saturday) {
-                                        return Center(
-                                          child: Text(
-                                            DateFormat.E().format(day),
-                                            style:
-                                                TextStyle(color: Colors.blue),
-                                          ),
-                                        );
-                                      }
-                                      return Center(
-                                        child: Text(
-                                          DateFormat.E().format(day),
-                                          style: textTheme.bodyMedium!
-                                              .copyWith(color: primaryColor),
-                                        ),
-                                      );
-                                    },
+  Color textColor;
+  if (day.weekday == DateTime.sunday) {
+    textColor = Colors.red;
+  } else if (day.weekday == DateTime.saturday) {
+    textColor = Colors.blue;
+  } else {
+    // ダークモードかライトモードかを判定
+    final brightness = Theme.of(context).brightness;
+    textColor = brightness == Brightness.dark ? Colors.white : Colors.black;
+  }
+  return Center(
+    child: Text(
+      DateFormat.E().format(day),
+      style: textTheme.bodyMedium!.copyWith(color: textColor),
+    ),
+  );
+},
                                   ),
                                   rowHeight: rowHeight,
                                   daysOfWeekHeight: 40,
@@ -246,7 +238,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     } else if (day.weekday == DateTime.saturday) {
       textColor = Colors.blue;
     } else {
-      textColor = isToday ? Colors.white : primaryColor;
+      // ダークモードかライトモードかを判定
+      final brightness = Theme.of(context).brightness;
+      textColor = brightness == Brightness.dark ? Colors.white : Colors.black;
     }
 
     return Container(
@@ -271,7 +265,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               child: Text(
                 '${day.day}',
                 style: textTheme.bodyMedium!.copyWith(
-                  color: textColor,
+                  color: isToday ? Colors.white : textColor,
                   fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                 ),
               ),

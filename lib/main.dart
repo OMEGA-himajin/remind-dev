@@ -106,6 +106,105 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
     });
   }
 
+  void _showAddSubjectDialog(BuildContext context) async {
+    TextEditingController textEditingController = TextEditingController();
+
+    await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              title: const Text('教科を追加'),
+              content: Container(
+                width: 300,
+                height: 400,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: FutureBuilder<List<String>>(
+                        future: _getSubjects(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return CircularProgressIndicator();
+                          }
+                          List<String> subjects = snapshot.data!;
+                          return ListView.builder(
+                            itemCount: subjects.length,
+                            itemBuilder: (context, index) {
+                              if (subjects[index].trim().isEmpty)
+                                return Container();
+                              return ListTile(
+                                title: Text(
+                                  subjects[index],
+                                  style: TextStyle(color: Colors.black),
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(Icons.delete),
+                                  onPressed: () async {
+                                    await DataManager()
+                                        .deleteSubject(subjects[index]);
+                                    setDialogState(() {});
+                                  },
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    TextField(
+                      controller: textEditingController,
+                      decoration: const InputDecoration(
+                        hintText: "教科名を入力してください",
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('キャンセル'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                TextButton(
+                  child: const Text('追加'),
+                  onPressed: () async {
+                    String subjectName = textEditingController.text.trim();
+                    if (subjectName.isNotEmpty &&
+                        !await DataManager().subjectExists(subjectName)) {
+                      await DataManager().addSubject(subjectName);
+                      setDialogState(() {});
+                      textEditingController.clear();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('教科を追加しました')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('すでに同じ名前の教科が存在するか空白です。')),
+                      );
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<List<String>> _getSubjects() async {
+    await DataManager().loadData();
+    Map<String, dynamic> timetableData = DataManager().getTimetableData();
+    List<String> subjects = List<String>.from(
+        timetableData['sub']?.map((subject) => subject.toString()) ?? []);
+    subjects = subjects.where((subject) => subject.trim().isNotEmpty).toList();
+    return subjects;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,8 +219,10 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'ホーム'),
           BottomNavigationBarItem(icon: Icon(Icons.table_view), label: '時間割'),
-          BottomNavigationBarItem(icon: Icon(Icons.library_books), label: '持ち物'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'スケジュール'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.library_books), label: '持ち物'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_month), label: 'スケジュール'),
         ],
         type: BottomNavigationBarType.fixed,
       ),
@@ -183,6 +284,15 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               Navigator.pop(context);
             },
           ),
+          // ここに新しいListTileを追加
+          ListTile(
+            leading: Icon(Icons.add),
+            title: Text('教科の追加'),
+            onTap: () {
+              Navigator.pop(context);
+              _showAddSubjectDialog(context);
+            },
+          ),
           ListTile(
             leading: Icon(Icons.library_books),
             title: Text('持ち物'),
@@ -233,68 +343,12 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
           ),
           if (_selectedIndex == 1) ...[
             Divider(),
-            _buildTimetableSpecificMenuItems(context),
+            (_screens[1] as TimeTableScreen)
+                .buildTimetableSpecificMenuItems(context),
           ],
         ],
       ),
     );
-  }
-
-  Widget _buildTimetableSpecificMenuItems(BuildContext context) {
-    return Column(
-      children: [
-        ListTile(
-          title: Text("教科の追加"),
-          trailing: Icon(Icons.add),
-          onTap: () {
-            Navigator.pop(context);
-            showAddSubjectDialog(context);
-          },
-        ),
-        ListTile(
-          title: Text("時間数の変更"),
-          trailing: Icon(Icons.access_time),
-          onTap: () {
-            Navigator.pop(context);
-            showChangeTimesDialog(context);
-          },
-        ),
-        StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Column(
-              children: [
-                SwitchListTile(
-                  title: Text('土曜日を表示する'),
-                  value: DataManager().getSaturdayEnabled(),
-                  onChanged: (bool value) {
-                    Navigator.pop(context);
-                    DataManager().updateSaturdayEnabled(value);
-                    setState(() {});
-                  },
-                ),
-                SwitchListTile(
-                  title: Text('日曜日を表示する'),
-                  value: DataManager().getSundayEnabled(),
-                  onChanged: (bool value) {
-                    Navigator.pop(context);
-                    DataManager().updateSundayEnabled(value);
-                    setState(() {});
-                  },
-                ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  void showAddSubjectDialog(BuildContext context) {
-    // TimeTableScreenのshowAddSubjectDialogメソッドの内容をここに実装
-  }
-
-  void showChangeTimesDialog(BuildContext context) {
-    // TimeTableScreenのshowChangeTimesDialogメソッドの内容をここに実装
   }
 }
 
@@ -309,6 +363,13 @@ class DataManager {
 
   Map<String, dynamic> _data = {};
   Map<String, List<Map<String, dynamic>>> _events = {};
+
+  Future<void> deleteSubject(String subjectName) async {
+    List<String> subjects = List<String>.from(_data['sub'] ?? []);
+    subjects.remove(subjectName);
+    _data['sub'] = subjects;
+    await saveData();
+  }
 
   Future<void> loadData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -367,13 +428,6 @@ class DataManager {
       _data['sub'] = subjects;
       await saveData();
     }
-  }
-
-  Future<void> deleteSubject(String subjectName) async {
-    List<String> subjects = List<String>.from(_data['sub'] ?? []);
-    subjects.remove(subjectName);
-    _data['sub'] = subjects;
-    await saveData();
   }
 
   bool subjectExists(String subjectName) {
