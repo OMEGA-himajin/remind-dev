@@ -134,7 +134,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
     );
   }
-
+//
   Widget _buildEventAdder(ThemeData theme) {
     return AnimatedPositioned(
       duration: Duration(milliseconds: 300),
