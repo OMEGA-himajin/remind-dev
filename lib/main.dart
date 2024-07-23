@@ -490,8 +490,9 @@ class DataManager {
       dateEvents.forEach((event) {
         DateTime startDate = DateTime.parse(event['startDateTime']);
         DateTime endDate = DateTime.parse(event['endDateTime']);
-        if (day.isAfter(startDate.subtract(Duration(days: 1))) &&
-            day.isBefore(endDate.add(Duration(days: 1)))) {
+        if (day.isAtSameMomentAs(startDate) ||
+            (day.isAfter(startDate) &&
+                day.isBefore(endDate.add(Duration(days: 1))))) {
           if (!events.any((e) => e['id'] == event['id'])) {
             events.add(event);
           }
