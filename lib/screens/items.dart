@@ -5,32 +5,8 @@ class ItemsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
-
     return Scaffold(
-      appBar: AppBar(
-          title: const Text('持ち物'),
-      ),
-      drawer: Drawer(
-        child: ListView(
-          children: const <Widget>[
-          DrawerHeader(
-            child: Text('Drawer Header'),
-          ),
-          ListTile(
-            title: Text("Item 1"),
-            trailing: Icon(Icons.arrow_forward),
-          ),
-          ListTile(
-            title: Text("Item 2"),
-            trailing: Icon(Icons.arrow_forward),
-          ),
-        ],
-      ),
-    ),
-      body: const Center(
-          child: Text('持ち物', style: TextStyle(fontSize: 32.0))),
+      body: const Center(child: Text('持ち物', style: TextStyle(fontSize: 32.0))),
     );
-    
   }
 }
