@@ -134,6 +134,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
     );
   }
+
 //
   Widget _buildEventAdder(ThemeData theme) {
     return AnimatedPositioned(
@@ -271,6 +272,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 ? Colors.white
                 : Colors.black;
 
+    final events = _dataManager.getEventsForDay(day);
+
     return Container(
       height: cellHeight,
       decoration: BoxDecoration(
@@ -279,12 +282,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
         ),
       ),
-      child: Stack(
+      child: Column(
         children: [
-          Positioned(
-            top: 2,
-            left: 2,
+          Align(
+            alignment: Alignment.topLeft,
             child: Container(
+              margin: EdgeInsets.all(2),
               padding: EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -299,9 +302,70 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               ),
             ),
           ),
+          Expanded(
+            child: Stack(
+              children: events
+                  .map((event) => _buildEventIndicator(day, event))
+                  .toList(),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildEventIndicator(DateTime day, Map<String, dynamic> event) {
+    final startDate = DateTime.parse(event['startDateTime']);
+    final endDate = DateTime.parse(event['endDateTime']);
+    final isStart = day.isAtSameMomentAs(startDate);
+    final isEnd = day.isAtSameMomentAs(endDate);
+    final isMiddle = day.isAfter(startDate) && day.isBefore(endDate);
+    final isSingleDay = startDate.year == endDate.year &&
+        startDate.month == endDate.month &&
+        startDate.day == endDate.day;
+
+    if (!isStart && !isMiddle && !isEnd) return SizedBox.shrink();
+
+    return Positioned(
+      top: 0,
+      left: isStart ? 0 : -0.5,
+      right: isEnd ? 0 : -0.5,
+      child: Container(
+        height: 20, // 高さを増やして、より多くのテキストを表示できるようにします
+        decoration: BoxDecoration(
+          color: Color(event['color']),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(isStart ? 4 : 0),
+            bottomLeft: Radius.circular(isStart ? 4 : 0),
+            topRight: Radius.circular(isEnd ? 4 : 0),
+            bottomRight: Radius.circular(isEnd ? 4 : 0),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            _getEventText(event, isStart, isMiddle, isEnd, isSingleDay),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10, // フォントサイズを大きくして読みやすくします
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getEventText(Map<String, dynamic> event, bool isStart, bool isMiddle,
+      bool isEnd, bool isSingleDay) {
+    if (isSingleDay || isStart) {
+      return event['event'];
+    } else if (isMiddle) {
+      return '...'; // 中間の日には省略記号を表示
+    } else if (isEnd) {
+      return '終了'; // 最終日には「終了」と表示
+    }
+    return '';
   }
 
   void _showAddEventDialog() {
