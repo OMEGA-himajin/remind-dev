@@ -3,6 +3,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import '../main.dart';
+import 'dart:math' show max;
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -135,7 +136,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-//
   Widget _buildEventAdder(ThemeData theme) {
     return AnimatedPositioned(
       duration: Duration(milliseconds: 300),
@@ -304,9 +304,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           ),
           Expanded(
             child: Stack(
-              children: events
-                  .map((event) => _buildEventIndicator(day, event))
-                  .toList(),
+              children: _buildEventIndicators(day, events),
             ),
           ),
         ],
@@ -314,39 +312,125 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
+  List<Widget> _buildEventIndicators(
+      DateTime day, List<Map<String, dynamic>> events) {
+    final List<Widget> indicators = [];
+    const double eventHeight = 12.0;
+    const double eventSpacing = 2.0;
+    const double horizontalPadding = 2.0;
+
+    var sortedEvents = [...events.where((event) => event['type'] == 'task')]
+      ..sort((a, b) => _getEventDuration(b).compareTo(_getEventDuration(a)));
+    sortedEvents.addAll([...events.where((event) => event['type'] != 'task')]
+      ..sort((a, b) => _getEventDuration(b).compareTo(_getEventDuration(a))));
+
+    Map<String, int> eventPositions = {};
+
+    for (var i = 0; i < sortedEvents.length; i++) {
+      var event = sortedEvents[i];
+      final startDate = DateTime.parse(event['startDateTime']);
+      final endDate = DateTime.parse(event['endDateTime']);
+      final isStart = isSameDay(day, startDate);
+      final isEnd = isSameDay(day, endDate);
+      final isContinuation = day.isAfter(startDate) && day.isBefore(endDate);
+
+      if (isStart || isEnd || isContinuation) {
+        int position;
+        if (eventPositions.containsKey(event['id'])) {
+          position = eventPositions[event['id']]!;
+        } else {
+          position = eventPositions.values.isEmpty
+              ? 0
+              : eventPositions.values.reduce(max) + 1;
+
+          if (event['multiday']) {
+            for (var j = i + 1; j < sortedEvents.length; j++) {
+              if (sortedEvents[j]['id'] == event['id']) {
+                eventPositions[sortedEvents[j]['id']] = position;
+              }
+            }
+          }
+        }
+        eventPositions[event['id']] = position;
+
+        // Determine if this is the middle of a week for a multi-week event
+        bool isMiddleOfWeek = false;
+        if (isContinuation) {
+          final weekStart = day.subtract(Duration(days: day.weekday - 1));
+          final weekEnd = weekStart.add(Duration(days: 6));
+          if (startDate.isBefore(weekStart) && endDate.isAfter(weekEnd)) {
+            isMiddleOfWeek =
+                day.weekday == 3; // Wednesday is now the middle of the week
+          }
+        }
+
+        indicators.add(
+          Positioned(
+            top: position * (eventHeight + eventSpacing),
+            left: isStart ? horizontalPadding : 0,
+            right: isEnd ? horizontalPadding : 0,
+            child: Container(
+              height: eventHeight,
+              decoration: BoxDecoration(
+                color: Color(event['color']),
+                borderRadius: BorderRadius.horizontal(
+                  left: isStart ? Radius.circular(4) : Radius.zero,
+                  right: isEnd ? Radius.circular(4) : Radius.zero,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  (isStart || isEnd || isMiddleOfWeek) ? event['event'] : '',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return indicators;
+  }
+
+  Duration _getEventDuration(Map<String, dynamic> event) {
+    final startDate = DateTime.parse(event['startDateTime']);
+    final endDate = DateTime.parse(event['endDateTime']);
+    return endDate.difference(startDate);
+  }
+
   Widget _buildEventIndicator(DateTime day, Map<String, dynamic> event) {
     final startDate = DateTime.parse(event['startDateTime']);
     final endDate = DateTime.parse(event['endDateTime']);
-    final isStart = day.isAtSameMomentAs(startDate);
-    final isEnd = day.isAtSameMomentAs(endDate);
-    final isMiddle = day.isAfter(startDate) && day.isBefore(endDate);
-    final isSingleDay = startDate.year == endDate.year &&
-        startDate.month == endDate.month &&
-        startDate.day == endDate.day;
+    final isStart = isSameDay(day, startDate);
+    final isEnd = isSameDay(day, endDate);
+    final isContinuation = day.isAfter(startDate) && day.isBefore(endDate);
 
-    if (!isStart && !isMiddle && !isEnd) return SizedBox.shrink();
+    const double gapSize = 2.0;
 
     return Positioned(
       top: 0,
-      left: isStart ? 0 : -0.5,
-      right: isEnd ? 0 : -0.5,
+      left: isStart ? gapSize : 0,
+      right: isEnd ? gapSize : 0,
       child: Container(
-        height: 20, // 高さを増やして、より多くのテキストを表示できるようにします
+        height: 20,
         decoration: BoxDecoration(
           color: Color(event['color']),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isStart ? 4 : 0),
-            bottomLeft: Radius.circular(isStart ? 4 : 0),
-            topRight: Radius.circular(isEnd ? 4 : 0),
-            bottomRight: Radius.circular(isEnd ? 4 : 0),
+          borderRadius: BorderRadius.horizontal(
+            left: isStart ? Radius.circular(4) : Radius.zero,
+            right: isEnd ? Radius.circular(4) : Radius.zero,
           ),
         ),
         child: Center(
           child: Text(
-            _getEventText(event, isStart, isMiddle, isEnd, isSingleDay),
+            isStart || isEnd ? event['event'] : '',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 10, // フォントサイズを大きくして読みやすくします
+              fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
             overflow: TextOverflow.ellipsis,
@@ -354,18 +438,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         ),
       ),
     );
-  }
-
-  String _getEventText(Map<String, dynamic> event, bool isStart, bool isMiddle,
-      bool isEnd, bool isSingleDay) {
-    if (isSingleDay || isStart) {
-      return event['event'];
-    } else if (isMiddle) {
-      return '...'; // 中間の日には省略記号を表示
-    } else if (isEnd) {
-      return '終了'; // 最終日には「終了」と表示
-    }
-    return '';
   }
 
   void _showAddEventDialog() {
@@ -377,7 +449,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final _endDateTimeController = TextEditingController();
     var selectedType = 'event';
     var selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
-    var selectedColor = Colors.blue;
+    Color selectedColor = Colors.blue; // Changed from MaterialColor to Color
     var startDateTime = _selectedStartDay;
     var endDateTime = _selectedEndDay;
     var isAllDay = false;
@@ -401,42 +473,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DropdownButtonFormField<String>(
-                    value: selectedType,
-                    decoration: InputDecoration(
-                      labelText: '追加する項目',
-                      labelStyle: theme.textTheme.bodyMedium,
-                    ),
-                    style: theme.textTheme.bodyMedium,
-                    onChanged: (value) {
+                  SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment(value: 'event', label: Text('予定')),
+                      ButtonSegment(value: 'task', label: Text('課題')),
+                    ],
+                    selected: {selectedType},
+                    onSelectionChanged: (Set<String> newSelection) {
                       setState(() {
-                        selectedType = value!;
-                        _eventController.clear();
-                        _contentController.clear();
-                        _startDateController.text =
-                            DateFormat('yyyy-MM-dd').format(startDateTime);
-                        _endDateController.text =
-                            DateFormat('yyyy-MM-dd').format(endDateTime);
-                        _startDateTimeController.text =
-                            DateFormat('yyyy-MM-dd HH:mm')
-                                .format(startDateTime);
-                        _endDateTimeController.text =
-                            DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
-                        selectedSubject =
-                            subjects.isNotEmpty ? subjects[0] : '';
-                        isAllDay = false;
+                        selectedType = newSelection.first;
                       });
                     },
-                    items: [
-                      DropdownMenuItem<String>(
-                          value: 'event', child: Text('予定')),
-                      DropdownMenuItem<String>(
-                          value: 'task', child: Text('課題')),
-                    ],
                   ),
                   SizedBox(height: 16.0),
                   ListTile(
-                    title: Text('色を選択', style: theme.textTheme.bodyMedium),
+                    title: Text('ラベルの色', style: theme.textTheme.bodyMedium),
                     trailing: Container(
                       width: 24,
                       height: 24,
@@ -456,7 +507,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 pickerColor: selectedColor,
                                 onColorChanged: (Color color) {
                                   setState(() {
-                                    var selectedColor = Colors.blue as Color;
+                                    selectedColor = color;
                                   });
                                 },
                                 pickerAreaHeightPercent: 0.8,

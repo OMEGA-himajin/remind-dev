@@ -52,7 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ログイン状態を保持する変数
   User? _user;
 
-  // 入力したメールアドレス・パスワード
   String _email = '';
   String _password = '';
 
