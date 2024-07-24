@@ -284,15 +284,6 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               Navigator.pop(context);
             },
           ),
-          // ここに新しいListTileを追加
-          ListTile(
-            leading: Icon(Icons.add),
-            title: Text('教科の追加'),
-            onTap: () {
-              Navigator.pop(context);
-              _showAddSubjectDialog(context);
-            },
-          ),
           ListTile(
             leading: Icon(Icons.library_books),
             title: Text('持ち物'),
