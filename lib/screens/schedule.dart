@@ -319,10 +319,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     const double eventSpacing = 2.0;
     const double horizontalPadding = 2.0;
 
-    var sortedEvents = [...events.where((event) => event['type'] == 'task')]
+    var sortedEvents = [...events]
       ..sort((a, b) => _getEventDuration(b).compareTo(_getEventDuration(a)));
-    sortedEvents.addAll([...events.where((event) => event['type'] != 'task')]
-      ..sort((a, b) => _getEventDuration(b).compareTo(_getEventDuration(a))));
 
     Map<String, int> eventPositions = {};
 
@@ -342,27 +340,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           position = eventPositions.values.isEmpty
               ? 0
               : eventPositions.values.reduce(max) + 1;
-
-          if (event['multiday']) {
-            for (var j = i + 1; j < sortedEvents.length; j++) {
-              if (sortedEvents[j]['id'] == event['id']) {
-                eventPositions[sortedEvents[j]['id']] = position;
-              }
-            }
-          }
+          eventPositions[event['id']] = position;
         }
-        eventPositions[event['id']] = position;
 
-        // Determine if this is the middle of a week for a multi-week event
-        bool isMiddleOfWeek = false;
-        if (isContinuation) {
-          final weekStart = day.subtract(Duration(days: day.weekday - 1));
-          final weekEnd = weekStart.add(Duration(days: 6));
-          if (startDate.isBefore(weekStart) && endDate.isAfter(weekEnd)) {
-            isMiddleOfWeek =
-                day.weekday == 3; // Wednesday is now the middle of the week
-          }
-        }
+        bool showLabel = _shouldShowLabel(day, startDate, endDate);
 
         indicators.add(
           Positioned(
@@ -380,7 +361,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               ),
               child: Center(
                 child: Text(
-                  (isStart || isEnd || isMiddleOfWeek) ? event['event'] : '',
+                  showLabel ? event['event'] : '',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 10,
@@ -395,6 +376,37 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       }
     }
     return indicators;
+  }
+
+  bool _shouldShowLabel(DateTime day, DateTime startDate, DateTime endDate) {
+    // 開始日の場合は true
+    if (isSameDay(day, startDate)) return true;
+
+    // 終了日の場合は true
+    if (isSameDay(day, endDate)) return true;
+
+    // 開始日の次の週の月曜日を計算
+    DateTime startOfNextWeek =
+        startDate.add(Duration(days: 7 - startDate.weekday + 1));
+
+    // 終了日の前の週の日曜日を計算
+    DateTime endOfPreviousWeek =
+        endDate.subtract(Duration(days: endDate.weekday));
+
+    // 開始日の次の週から終了日の前の週までの間にある水曜日の場合は true
+    if (day.isAfter(startOfNextWeek) &&
+        day.isBefore(endOfPreviousWeek) &&
+        day.weekday == DateTime.wednesday) {
+      return true;
+    }
+
+    return false;
+  }
+
+  bool isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 
   Duration _getEventDuration(Map<String, dynamic> event) {
@@ -819,11 +831,5 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     _dataManager.addEvent(event);
 
     setState(() {});
-  }
-
-  bool isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
   }
 }
