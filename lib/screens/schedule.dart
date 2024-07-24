@@ -408,7 +408,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final endDate = DateTime.parse(event['endDateTime']);
     final isStart = isSameDay(day, startDate);
     final isEnd = isSameDay(day, endDate);
-    final isContinuation = day.isAfter(startDate) && day.isBefore(endDate);
+    //final isContinuation = day.isAfter(startDate) && day.isBefore(endDate);
 
     const double gapSize = 2.0;
 

@@ -203,7 +203,8 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     if (index < currentDayList.length) {
       selectedSubject = currentDayList[index];
     }
-
+    _loadData();
+    await _loadData();
     await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -250,6 +251,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   List<DropdownMenuItem<String>> _buildDropdownMenuItems() {
     Set<String> uniqueSubjects = subjects.toSet();
     List<String> sortedSubjects = uniqueSubjects.toList()..sort();
+    _loadData();
     sortedSubjects.insert(0, ''); // 空の選択肢を最初に追加
 
     return sortedSubjects.map((String subject) {
@@ -354,8 +356,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                               return ListTile(
                                 title: Text(
                                   subjects[index],
-                                  style:
-                                      TextStyle(color: Colors.white),
+                                  style: TextStyle(color: Colors.white),
                                 ),
                                 trailing: IconButton(
                                   icon: Icon(Icons.delete),
