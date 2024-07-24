@@ -5,6 +5,7 @@ import 'screens/home.dart';
 import 'screens/items.dart';
 import 'screens/schedule.dart' as schedule;
 import 'screens/timetable.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,7 @@ void main() async {
   } else {
     themeMode = ThemeMode.system;
   }
+  FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
   runApp(MyApp(initialThemeMode: themeMode));
 }
 
