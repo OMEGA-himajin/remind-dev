@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
@@ -19,7 +21,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   final String serviceUuid =
       "5ccc9918-c8a9-4f09-8c88-671375b3cf75"; // 対象のサービスUUID
   final String characteristicUuid =
-      "d14a8d50-f74f-4c7c-833a-7d796dce97ce"; // 対象のcharacteristicUUID
+      "c6f6bb69-2b85-47fb-993b-584440b6a785"; // 対象のcharacteristicUUID
 
   @override
   void initState() {
@@ -77,7 +79,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
       await targetCharacteristic!.setNotifyValue(value);
       targetCharacteristic!.value.listen((value) {
         setState(() {
-          notifyValue = value.toString();
+          final asciiValue = ascii.decode(value);
+          notifyValue = asciiValue;
         });
       });
     }
@@ -86,9 +89,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('BLE Scanner'),
-      ),
+      appBar: AppBar(),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
