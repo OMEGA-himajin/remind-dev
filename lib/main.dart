@@ -52,6 +52,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'タイトル',
       theme: ThemeData(
+        fontFamily: 'NotoSansJP',
         brightness: Brightness.light,
         primarySwatch: Colors.blue,
         colorScheme: ColorScheme.light(
@@ -64,6 +65,7 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       darkTheme: ThemeData(
+        fontFamily: 'NotoSansJP',
         brightness: Brightness.dark,
         primarySwatch: Colors.blue,
         colorScheme: ColorScheme.dark(
