@@ -16,6 +16,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   BluetoothDevice? connectedDevice;
   BluetoothCharacteristic? targetCharacteristic;
   String notifyValue = '';
+  bool notifyBool = false;
 
   final String targetDeviceName = "ubuntu"; // 探したいデバイスの名前
   final String serviceUuid =
@@ -23,10 +24,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
   final String characteristicUuid =
       "c6f6bb69-2b85-47fb-993b-584440b6a785"; // 対象のcharacteristicUUID
 
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance; //firestoreの初期化
+
   @override
   void initState() {
     super.initState();
-    startScan();
   }
 
   void startScan() async {
@@ -81,8 +84,23 @@ class _ItemsScreenState extends State<ItemsScreen> {
         setState(() {
           final asciiValue = ascii.decode(value);
           notifyValue = asciiValue;
+          notifyBool = true;
+          saveDataToFirestore();
         });
       });
+    }
+  }
+
+  void saveDataToFirestore() async {
+    try {
+      await _firestore.collection('notify_data').add({
+        'name': connectedDevice?.name,
+        'value': notifyValue,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      print('Data saved to Firestore');
+    } catch (e) {
+      print('Error saving data to Firestore: $e');
     }
   }
 

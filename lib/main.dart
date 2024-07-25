@@ -7,11 +7,12 @@ import 'screens/schedule.dart' as schedule;
 import 'screens/timetable.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SharedPreferences prefs = await SharedPreferences.getInstance();
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   String? themeModeString = prefs.getString('themeMode');
   ThemeMode themeMode;
   if (themeModeString == 'ThemeMode.light') {
