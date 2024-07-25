@@ -67,6 +67,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                         TextStyle(color: Colors.red),
                                     defaultTextStyle: textTheme.bodyMedium!
                                         .copyWith(color: primaryColor),
+                                    tableBorder: TableBorder.all(
+                                      color: Colors.grey.shade300,
+                                      width: 0.5,
+                                    ),
                                   ),
                                   calendarBuilders: CalendarBuilders(
                                     defaultBuilder:
@@ -278,6 +282,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       height: cellHeight,
       decoration: BoxDecoration(
         border: Border(
+          top: BorderSide(color: Colors.grey.shade300, width: 0.5),
+          left: BorderSide(color: Colors.grey.shade300, width: 0.5),
           right: BorderSide(color: Colors.grey.shade300, width: 0.5),
           bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
         ),
@@ -330,7 +336,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       final endDate = DateTime.parse(event['endDateTime']);
       final isStart = isSameDay(day, startDate);
       final isEnd = isSameDay(day, endDate);
-      final isContinuation = day.isAfter(startDate) && day.isBefore(endDate);
+      final isContinuation = day.isAfter(startDate) &&
+          day.isBefore(endDate.add(Duration(days: 1)));
 
       if (isStart || isEnd || isContinuation) {
         int position;
