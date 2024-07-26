@@ -29,7 +29,6 @@ class ItemsController extends ChangeNotifier {
     scanResults.clear();
 
     try {
-      // スキャン開始前に権限を確認
       if (!(await FlutterBluePlus.isAvailable)) {
         statusMessage = "Bluetooth is not available on this device";
         isScanning = false;
@@ -54,9 +53,65 @@ class ItemsController extends ChangeNotifier {
     }
   }
 
-  void addItem(String tagId, String name) async {
+  void connectToDevice(BluetoothDevice device) async {
+    try {
+      await device.connect();
+      connectedDevice = device;
+      notifyListeners();
+
+      List<BluetoothService> services = await device.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString() == serviceUuid) {
+          var characteristics = service.characteristics;
+          for (BluetoothCharacteristic c in characteristics) {
+            if (c.uuid.toString() == characteristicUuid) {
+              targetCharacteristic = c;
+              setNotifyValue(true);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print(e.toString());
+      statusMessage = "Error connecting to device: ${e.toString()}";
+      notifyListeners();
+    }
+  }
+
+  void setNotifyValue(bool value) async {
+    if (targetCharacteristic != null) {
+      await targetCharacteristic!.setNotifyValue(value);
+      targetCharacteristic!.value.listen((value) {
+        final asciiValue = ascii.decode(value);
+        notifyValue = asciiValue;
+        processNotifiedValue(asciiValue);
+        notifyListeners();
+      });
+    }
+  }
+
+  void processNotifiedValue(String value) async {
+    try {
+      Item? item = await _itemRepository.getItemByTagId(value);
+      if (item != null) {
+        await _itemRepository.updateItemInBagStatus(item.tagId, !item.inBag);
+        statusMessage =
+            'アイテムのステータスを更新しました: ${item.inBag ? "バッグから出しました" : "バッグに入れました"}';
+      } else {
+        statusMessage = "登録されていないアイテムです。アイテムを登録してください";
+      }
+    } catch (e) {
+      print('Error processing notified value: $e');
+      statusMessage = "エラーが発生しました";
+    }
+    notifyListeners();
+  }
+
+  Future<void> addItem(String tagId, String name) async {
     Item newItem = Item(tagId: tagId, name: name);
     await _itemRepository.addItem(newItem);
+    statusMessage = "アイテムを追加しました: $name (Tag ID: $tagId)";
+    notifyListeners();
   }
 
   @override

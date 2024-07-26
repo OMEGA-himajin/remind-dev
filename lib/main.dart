@@ -99,7 +99,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   static final List<Widget> _screens = [
     const HomeScreen(),
     const TimeTableScreen(),
-    const ItemsScreen(),
+    ItemsScreen(),
     const schedule.ScheduleScreen()
   ];
 

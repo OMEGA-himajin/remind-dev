@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:remind_dev/controller/items_controller.dart';
 
-class ItemsScreen extends StatefulWidget {
-  const ItemsScreen({Key? key}) : super(key: key);
-
-  @override
-  State<ItemsScreen> createState() => _ItemsScreenState();
-}
-
-class _ItemsScreenState extends State<ItemsScreen> {
-  final ItemsController _controller = ItemsController();
-
+class ItemsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (context) => ItemsController(),
+      child: _ItemsScreenContent(),
+    );
+  }
+}
+
+class _ItemsScreenContent extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final controller = Provider.of<ItemsController>(context);
+
     return Scaffold(
       appBar: AppBar(title: Text('BLE Scanner')),
       body: Center(
@@ -20,44 +24,46 @@ class _ItemsScreenState extends State<ItemsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
-              child: Text('Start Scan'),
-              onPressed: _controller.startScan,
+              child: Text(controller.isScanning ? 'Scanning...' : 'Start Scan'),
+              onPressed: controller.isScanning ? null : controller.startScan,
             ),
             Expanded(
               child: ListView.builder(
-                itemCount: _controller.scanResults.length,
+                itemCount: controller.scanResults.length,
                 itemBuilder: (context, index) {
+                  final result = controller.scanResults[index];
                   return ListTile(
-                    title: Text(_controller.scanResults[index].device.name),
-                    subtitle: Text(
-                        _controller.scanResults[index].device.id.toString()),
+                    title: Text(result.device.name.isNotEmpty
+                        ? result.device.name
+                        : 'Unknown Device'),
+                    subtitle: Text(result.device.id.toString()),
                     trailing: ElevatedButton(
                       child: Text('Connect'),
-                      onPressed: () => _controller.connectToDevice(
-                          _controller.scanResults[index].device),
+                      onPressed: () =>
+                          controller.connectToDevice(result.device),
                     ),
                   );
                 },
               ),
             ),
-            if (_controller.connectedDevice != null)
-              Text('Connected to: ${_controller.connectedDevice!.name}'),
-            if (_controller.notifyValue.isNotEmpty)
-              Text('Notify Value: ${_controller.notifyValue}'),
-            if (_controller.statusMessage.isNotEmpty)
-              Text(_controller.statusMessage),
+            if (controller.connectedDevice != null)
+              Text('Connected to: ${controller.connectedDevice!.name}'),
+            if (controller.notifyValue.isNotEmpty)
+              Text('Notify Value: ${controller.notifyValue}'),
+            if (controller.statusMessage.isNotEmpty)
+              Text(controller.statusMessage),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddPopup,
+        onPressed: () => _showAddPopup(context),
         child: Icon(Icons.add),
         tooltip: 'Add Item',
       ),
     );
   }
 
-  void _showAddPopup() {
+  void _showAddPopup(BuildContext context) {
     String tagId = '';
     String name = '';
     showDialog(
@@ -89,7 +95,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
                 TextButton(
                   child: Text('追加'),
                   onPressed: () {
-                    _controller.addItem(tagId, name);
+                    Provider.of<ItemsController>(context, listen: false)
+                        .addItem(tagId, name);
                     Navigator.of(context).pop();
                   },
                 ),
