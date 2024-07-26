@@ -44,7 +44,6 @@ app.*.map.json
 
 #Ignore generated files
 
-windows\flutter\generated_plugins.cmake
-windows\flutter\generated_plugin_registrant.cc
-windows\flutter\generated_plugin_registrant.h
-macos\Flutter\GeneratedPluginRegistrant.swift
+macos/Flutter/GeneratedPluginRegistrant.swift
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugins.cmake

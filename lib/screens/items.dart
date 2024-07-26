@@ -1,151 +1,109 @@
-import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:remind_dev/controller/items_controller.dart';
 
 class ItemsScreen extends StatefulWidget {
-  const ItemsScreen({super.key});
+  const ItemsScreen({Key? key}) : super(key: key);
 
   @override
   State<ItemsScreen> createState() => _ItemsScreenState();
 }
 
 class _ItemsScreenState extends State<ItemsScreen> {
-  List<ScanResult> scanResults = [];
-  bool isScanning = false;
-  BluetoothDevice? connectedDevice;
-  BluetoothCharacteristic? targetCharacteristic;
-  String notifyValue = '';
-  bool notifyBool = false;
-
-  final String targetDeviceName = "ubuntu"; // 探したいデバイスの名前
-  final String serviceUuid =
-      "5ccc9918-c8a9-4f09-8c88-671375b3cf75"; // 対象のサービスUUID
-  final String characteristicUuid =
-      "c6f6bb69-2b85-47fb-993b-584440b6a785"; // 対象のcharacteristicUUID
-
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance; //firestoreの初期化
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  void startScan() async {
-    setState(() {
-      scanResults.clear();
-      isScanning = true;
-    });
-
-    try {
-      await FlutterBluePlus.startScan(timeout: Duration(seconds: 4));
-      FlutterBluePlus.scanResults.listen((results) {
-        setState(() {
-          scanResults =
-              results.where((r) => r.device.name == targetDeviceName).toList();
-        });
-      });
-    } finally {
-      setState(() {
-        isScanning = false;
-      });
-    }
-  }
-
-  void connectToDevice(BluetoothDevice device) async {
-    try {
-      await device.connect();
-      setState(() {
-        connectedDevice = device;
-      });
-
-      List<BluetoothService> services = await device.discoverServices();
-      for (var service in services) {
-        if (service.uuid.toString() == serviceUuid) {
-          var characteristics = service.characteristics;
-          for (BluetoothCharacteristic c in characteristics) {
-            if (c.uuid.toString() == characteristicUuid) {
-              targetCharacteristic = c;
-              setNotifyValue(true);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      print(e.toString());
-    }
-  }
-
-  void setNotifyValue(bool value) async {
-    if (targetCharacteristic != null) {
-      await targetCharacteristic!.setNotifyValue(value);
-      targetCharacteristic!.value.listen((value) {
-        setState(() {
-          final asciiValue = ascii.decode(value);
-          notifyValue = asciiValue;
-          notifyBool = true;
-          saveDataToFirestore();
-        });
-      });
-    }
-  }
-
-  void saveDataToFirestore() async {
-    try {
-      await _firestore.collection('notify_data').add({
-        'name': connectedDevice?.name,
-        'value': notifyValue,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      print('Data saved to Firestore');
-    } catch (e) {
-      print('Error saving data to Firestore: $e');
-    }
-  }
+  final ItemsController _controller = ItemsController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(title: Text('BLE Scanner')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            isScanning
-                ? CircularProgressIndicator()
-                : ElevatedButton(
-                    child: Text('Start Scan'),
-                    onPressed: startScan,
-                  ),
+            ElevatedButton(
+              child: Text('Start Scan'),
+              onPressed: _controller.startScan,
+            ),
             Expanded(
               child: ListView.builder(
-                itemCount: scanResults.length,
+                itemCount: _controller.scanResults.length,
                 itemBuilder: (context, index) {
                   return ListTile(
-                    title: Text(scanResults[index].device.name),
-                    subtitle: Text(scanResults[index].device.id.toString()),
+                    title: Text(_controller.scanResults[index].device.name),
+                    subtitle: Text(
+                        _controller.scanResults[index].device.id.toString()),
                     trailing: ElevatedButton(
                       child: Text('Connect'),
-                      onPressed: () =>
-                          connectToDevice(scanResults[index].device),
+                      onPressed: () => _controller.connectToDevice(
+                          _controller.scanResults[index].device),
                     ),
                   );
                 },
               ),
             ),
-            if (connectedDevice != null)
-              Text('Connected to: ${connectedDevice!.name}'),
-            if (notifyValue.isNotEmpty) Text('Notify Value: $notifyValue'),
+            if (_controller.connectedDevice != null)
+              Text('Connected to: ${_controller.connectedDevice!.name}'),
+            if (_controller.notifyValue.isNotEmpty)
+              Text('Notify Value: ${_controller.notifyValue}'),
+            if (_controller.statusMessage.isNotEmpty)
+              Text(_controller.statusMessage),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddPopup,
+        child: Icon(Icons.add),
+        tooltip: 'Add Item',
       ),
     );
   }
 
-  @override
-  void dispose() {
-    FlutterBluePlus.stopScan();
-    super.dispose();
+  void _showAddPopup() {
+    String tagId = '';
+    String name = '';
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('持ち物追加'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                decoration: InputDecoration(labelText: 'タグID'),
+                onChanged: (value) {
+                  tagId = value;
+                },
+              ),
+              TextField(
+                decoration: InputDecoration(labelText: '名前'),
+                onChanged: (value) {
+                  name = value;
+                },
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(
+                  child: Text('追加'),
+                  onPressed: () {
+                    _controller.addItem(tagId, name);
+                    Navigator.of(context).pop();
+                  },
+                ),
+                TextButton(
+                  child: Text('閉じる'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            )
+          ],
+        );
+      },
+    );
   }
 }
