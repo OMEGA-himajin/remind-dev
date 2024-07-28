@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import './weather_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -10,31 +11,85 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final WeatherService _weatherService = WeatherService();
-  Map<String, dynamic>? _weatherData;
-  bool _isLoading = false;
+  List<Map<String, dynamic>> _hourlyWeather = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchWeather();
+    _getCurrentLocation();
   }
 
-  Future<void> _fetchWeather() async {
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
 
-    try {
-      final data = await _weatherService.getWeather('230010'); // 名古屋市のID
+    // 位置情報サービスが有効かどうかを確認
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
       setState(() {
-        _weatherData = data;
-        _isLoading = false;
+        _hourlyWeather = [];
       });
-    } catch (e) {
-      print('Error fetching weather: $e');
+      print('Location services are disabled.');
+      return;
+    }
+
+    // 位置情報の権限を確認
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        setState(() {
+          _hourlyWeather = [];
+        });
+        print('Location permissions are denied.');
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
       setState(() {
-        _isLoading = false;
+        _hourlyWeather = [];
+      });
+      print('Location permissions are permanently denied.');
+      return;
+    }
+
+    // 現在の位置情報を取得
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      _getWeather(position);
+    } catch (e) {
+      print('Failed to get location: $e');
+    }
+  }
+
+  Future<void> _getWeather(Position position) async {
+    final apiKey =
+        '0a0c0fa899d5f49a5288ff7ca7fdd294'; // ここにOpenWeatherMapのAPIキーを入力
+    final url =
+        'https://api.openweathermap.org/data/2.5/forecast?lat=${position.latitude}&lon=${position.longitude}&appid=$apiKey&units=metric';
+
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      List<Map<String, dynamic>> hourlyWeather = [];
+      for (var i = 0; i < 24; i++) {
+        final hourData = data['list'][i];
+        hourlyWeather.add({
+          'time': hourData['dt_txt'],
+          'icon': hourData['weather'][0]['icon'],
+          'temp': hourData['main']['temp'],
+          'pop': hourData['pop'] * 100, // 降水確率は0-1の範囲なので100倍する
+        });
+      }
+      setState(() {
+        _hourlyWeather = hourlyWeather;
+      });
+    } else {
+      setState(() {
+        _hourlyWeather = [];
       });
     }
   }
@@ -43,137 +98,49 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('名古屋市の天気'),
+        title: const Text('ホーム'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _weatherData == null
-              ? const Center(child: Text('天気データを取得できませんでした'))
-              : _buildWeatherInfo(),
-    );
-  }
-
-  Widget _buildWeatherInfo() {
-    final forecasts = _weatherData!['forecasts'] as List;
-    final todayForecast = forecasts[0];
-
-    return RefreshIndicator(
-      onRefresh: _fetchWeather,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '愛知県名古屋市の天気',
-                style: Theme.of(context).textTheme.titleLarge,
+      body: _hourlyWeather.isEmpty
+          ? Center(child: Text('Loading...'))
+          : SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _hourlyWeather.map((weather) {
+                  return Container(
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      children: [
+                        Text(weather['time']),
+                        Image.network(
+                          'https://openweathermap.org/img/wn/${weather['icon']}@2x.png',
+                        ),
+                        Text('${weather['temp']}°C'),
+                        Text('降水確率: ${weather['pop']}%'),
+                      ],
+                    ),
+                  );
+                }).toList(),
               ),
-              const SizedBox(height: 16),
-              Text(
-                '発表日時: ${DateFormat('yyyy/MM/dd HH:mm').format(DateTime.parse(_weatherData!['publicTime']))}',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 16),
-              _buildHourlyForecast(todayForecast),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
+}
 
-  Widget _buildHourlyForecast(Map<String, dynamic> forecast) {
-    final now = DateTime.now();
-    final minTemp =
-        int.tryParse(forecast['temperature']['min']?['celsius'] ?? '') ?? 15;
-    final maxTemp =
-        int.tryParse(forecast['temperature']['max']?['celsius'] ?? '') ?? 25;
+void main() {
+  runApp(const MyApp());
+}
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '時間ごとの天気予報',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: List.generate(24, (index) {
-              final hour = (now.hour + index) % 24;
-              final temp = _generateRandomTemp(minTemp, maxTemp);
-              return _buildHourlyForecastItem(hour, forecast['telop'], temp);
-            }),
-          ),
-        ),
-      ],
-    );
-  }
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
 
-  Widget _buildHourlyForecastItem(int hour, String weather, int temp) {
-    return Container(
-      width: 80,
-      padding: const EdgeInsets.all(8),
-      margin: const EdgeInsets.only(right: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8),
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
       ),
-      child: Column(
-        children: [
-          Text('${hour.toString().padLeft(2, '0')}:00'),
-          const SizedBox(height: 4),
-          _getWeatherIcon(weather),
-          const SizedBox(height: 4),
-          Text('$temp°C'),
-        ],
-      ),
+      home: const HomeScreen(),
     );
-  }
-
-  Widget _getWeatherIcon(String weather) {
-    IconData iconData;
-    Color iconColor;
-
-    switch (weather) {
-      case '晴れ':
-        iconData = Icons.wb_sunny;
-        iconColor = Colors.orange;
-        break;
-      case '曇り':
-        iconData = Icons.cloud;
-        iconColor = Colors.grey;
-        break;
-      case '雨':
-        iconData = Icons.umbrella;
-        iconColor = Colors.blue;
-        break;
-      case '雪':
-        iconData = Icons.ac_unit;
-        iconColor = Colors.lightBlue;
-        break;
-      case '晴れ時々曇り':
-      case '曇り時々晴れ':
-        iconData = Icons.wb_cloudy; // partly_cloudy_day の代わりに wb_cloudy を使用
-        iconColor = Colors.orange;
-        break;
-      case '雨時々晴れ':
-      case '晴れ時々雨':
-        iconData = Icons.beach_access;
-        iconColor = Colors.blueGrey;
-        break;
-      default:
-        iconData = Icons.error_outline;
-        iconColor = Colors.red;
-    }
-
-    return Icon(iconData, color: iconColor, size: 24);
-  }
-
-  int _generateRandomTemp(int min, int max) {
-    return min + (max - min) * (DateTime.now().microsecond % 100) ~/ 100;
   }
 }
