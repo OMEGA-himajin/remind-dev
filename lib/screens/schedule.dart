@@ -59,7 +59,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                     (constraints.maxHeight - 80) / 7; // Adjusted the row height to fit 7 rows
                                 return TableCalendar(
                                   firstDay: DateTime.utc(2010, 1, 1),
-                                  lastDay: DateTime.utc(2030, 1, 1),
+                                  lastDay: DateTime.utc(2100, 1, 1),
                                   focusedDay: _focusedDay,
                                   onDaySelected: _onDaySelected,
                                   calendarStyle: CalendarStyle(
