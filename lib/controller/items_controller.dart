@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:remind_dev/model/items_model.dart';
+import '../model/firestore_item.dart';
 
 class ItemsController extends ChangeNotifier {
   List<ScanResult> scanResults = [];
