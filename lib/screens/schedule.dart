@@ -56,7 +56,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             child: LayoutBuilder(
                               builder: (context, constraints) {
                                 final rowHeight =
-                                    (constraints.maxHeight - 80) / 6;
+                                    (constraints.maxHeight - 80) / 7; // Adjusted the row height to fit 7 rows
                                 return TableCalendar(
                                   firstDay: DateTime.utc(2010, 1, 1),
                                   lastDay: DateTime.utc(2030, 1, 1),
