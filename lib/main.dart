@@ -270,38 +270,6 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               ),
             ),
           ),
-          ListTile(
-            leading: Icon(Icons.home),
-            title: Text('ホーム'),
-            onTap: () {
-              _onItemTapped(0);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.table_view),
-            title: Text('時間割'),
-            onTap: () {
-              _onItemTapped(1);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.library_books),
-            title: Text('持ち物'),
-            onTap: () {
-              _onItemTapped(2);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.calendar_month),
-            title: Text('スケジュール'),
-            onTap: () {
-              _onItemTapped(3);
-              Navigator.pop(context);
-            },
-          ),
           Divider(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
