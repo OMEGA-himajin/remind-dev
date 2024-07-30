@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'screens/home.dart';
-import 'screens/items.dart';
+//import 'screens/items.dart';
 import 'screens/schedule.dart' as schedule;
 import 'screens/timetable.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SharedPreferences prefs = await SharedPreferences.getInstance();
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  //String uid = _getDeviceId() as String;
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   String? themeModeString = prefs.getString('themeMode');
   ThemeMode themeMode;
   if (themeModeString == 'ThemeMode.light') {
@@ -24,6 +30,9 @@ void main() async {
   }
   FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
   runApp(MyApp(initialThemeMode: themeMode));
+}
+
+class _getDeviceId {
 }
 
 class MyApp extends StatefulWidget {
@@ -99,7 +108,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   static final List<Widget> _screens = [
     const HomeScreen(),
     const TimeTableScreen(),
-    ItemsScreen(),
+    //ItemsScreen(),
     const schedule.ScheduleScreen()
   ];
 
@@ -565,5 +574,18 @@ class DataManager {
     return date1.year == date2.year &&
         date1.month == date2.month &&
         date2.day == date2.day;
+  }
+
+Future<String> _getDeviceId() async {
+    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+      return androidInfo.id; // unique ID on Android
+    } else if (Platform.isIOS) {
+      IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+      return iosInfo.identifierForVendor!; // unique ID on iOS
+    } else {
+      throw UnsupportedError('Unsupported platform');
+    }
   }
 }

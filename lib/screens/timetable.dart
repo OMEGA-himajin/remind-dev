@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
+import '../model/firestore_timetables.dart';
+import '../model/firestore_subjects.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -15,19 +16,12 @@ class TimeTableScreen extends StatefulWidget {
 }
 
 class _TimeTableScreenState extends State<TimeTableScreen> {
-  late Map<String, dynamic> data = {};
-  bool _saturday = true;
-  bool _sunday = true;
-  int times = 6;
+  final TimetableRepository _timetableRepository = TimetableRepository();
+  final SubjectsRepository _subjectsRepository = SubjectsRepository();
 
-  List<String> mon = List.filled(10, '');
-  List<String> tue = List.filled(10, '');
-  List<String> wed = List.filled(10, '');
-  List<String> thu = List.filled(10, '');
-  List<String> fri = List.filled(10, '');
-  List<String> sat = List.filled(10, '');
-  List<String> sun = List.filled(10, '');
-  List<String> subjects = [''];
+  late Timetable _timetable;
+  List<String> _subjects = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -35,35 +29,29 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     _loadData();
   }
 
-  Future<void> _updateSubjects() async {
-    Map<String, dynamic> timetableData = DataManager().getTimetableData();
-    setState(() {
-      subjects = List<String>.from(
-          timetableData['sub']?.map((subject) => subject.toString()) ?? []);
-      subjects =
-          subjects.where((subject) => subject.trim().isNotEmpty).toList();
-    });
-  }
-
   Future<void> _loadData() async {
-    await DataManager().loadData();
-    Map<String, dynamic> timetableData = DataManager().getTimetableData();
     setState(() {
-      data = timetableData;
-      times = data['times'] ?? 6;
-      _saturday = data['enable_sat'] ?? true;
-      _sunday = data['enable_sun'] ?? true;
-      mon = List<String>.from(data['mon'] ?? List.filled(10, ''));
-      tue = List<String>.from(data['tue'] ?? List.filled(10, ''));
-      wed = List<String>.from(data['wed'] ?? List.filled(10, ''));
-      thu = List<String>.from(data['thu'] ?? List.filled(10, ''));
-      fri = List<String>.from(data['fri'] ?? List.filled(10, ''));
-      sat = List<String>.from(data['sat'] ?? List.filled(10, ''));
-      sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
-      subjects = List<String>.from(
-          data['sub']?.map((subject) => subject.toString()) ?? []);
-      subjects =
-          subjects.where((subject) => subject.trim().isNotEmpty).toList();
+      _isLoading = true;
+    });
+
+    String uid = 'test_fir'; // Replace with actual user ID
+    _timetable = await _timetableRepository.getTimetable(uid) ??
+        Timetable(
+          enableSat: true,
+          enableSun: true,
+          mon: List.filled(10, ''),
+          tue: List.filled(10, ''),
+          wed: List.filled(10, ''),
+          thu: List.filled(10, ''),
+          fri: List.filled(10, ''),
+          sat: List.filled(10, ''),
+          sun: List.filled(10, ''),
+          times: 6,
+        );
+    _subjects = await _subjectsRepository.getAllSubjects(uid);
+
+    setState(() {
+      _isLoading = false;
     });
   }
 
@@ -105,19 +93,19 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                     padding: EdgeInsets.all(8.0),
                     child: Text('金'),
                   ),
-                  if (_saturday)
+                  if (_timetable.enableSat)
                     const Padding(
                       padding: EdgeInsets.all(8.0),
                       child: Text('土'),
                     ),
-                  if (_sunday)
+                  if (_timetable.enableSun)
                     const Padding(
                       padding: EdgeInsets.all(8.0),
                       child: Text('日'),
                     ),
                 ],
               ),
-              for (int i = 1; i <= times; i++)
+              for (int i = 1; i <= _timetable.times; i++)
                 TableRow(
                   children: [
                     Padding(
@@ -127,13 +115,15 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                         child: Center(child: Text('$i')),
                       ),
                     ),
-                    _buildTableCell(context, 'mon', mon, i),
-                    _buildTableCell(context, 'tue', tue, i),
-                    _buildTableCell(context, 'wed', wed, i),
-                    _buildTableCell(context, 'thu', thu, i),
-                    _buildTableCell(context, 'fri', fri, i),
-                    if (_saturday) _buildTableCell(context, 'sat', sat, i),
-                    if (_sunday) _buildTableCell(context, 'sun', sun, i),
+                    _buildTableCell(context, 'mon', _timetable.mon, i),
+                    _buildTableCell(context, 'tue', _timetable.tue, i),
+                    _buildTableCell(context, 'wed', _timetable.wed, i),
+                    _buildTableCell(context, 'thu', _timetable.thu, i),
+                    _buildTableCell(context, 'fri', _timetable.fri, i),
+                    if (_timetable.enableSat)
+                      _buildTableCell(context, 'sat', _timetable.sat, i),
+                    if (_timetable.enableSun)
+                      _buildTableCell(context, 'sun', _timetable.sun, i),
                   ],
                 ),
             ],
@@ -144,7 +134,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   }
 
   Widget _buildTableCell(
-      BuildContext context, String day, List<String> list, int i) {
+      BuildContext context, String day, List<dynamic> list, int i) {
     return GestureDetector(
       onTap: () {
         _showInputDialog(context, day, i - 1);
@@ -154,7 +144,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
         color: Colors.transparent,
         alignment: Alignment.center,
         child: Text(
-          list[i - 1],
+          list[i - 1].toString(),
           textAlign: TextAlign.center,
           style: const TextStyle(color: Colors.white),
         ),
@@ -164,35 +154,35 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
 
   void _showInputDialog(BuildContext context, String day, int index) async {
     String? selectedSubject = '';
-    List<String> currentDayList;
+    List<dynamic> currentDayList;
     String dayName;
     switch (day) {
       case 'mon':
-        currentDayList = mon;
+        currentDayList = _timetable.mon;
         dayName = '月曜日';
         break;
       case 'tue':
-        currentDayList = tue;
+        currentDayList = _timetable.tue;
         dayName = '火曜日';
         break;
       case 'wed':
-        currentDayList = wed;
+        currentDayList = _timetable.wed;
         dayName = '水曜日';
         break;
       case 'thu':
-        currentDayList = thu;
+        currentDayList = _timetable.thu;
         dayName = '木曜日';
         break;
       case 'fri':
-        currentDayList = fri;
+        currentDayList = _timetable.fri;
         dayName = '金曜日';
         break;
       case 'sat':
-        currentDayList = sat;
+        currentDayList = _timetable.sat;
         dayName = '土曜日';
         break;
       case 'sun':
-        currentDayList = sun;
+        currentDayList = _timetable.sun;
         dayName = '日曜日';
         break;
       default:
@@ -201,7 +191,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     }
 
     if (index < currentDayList.length) {
-      selectedSubject = currentDayList[index];
+      selectedSubject = currentDayList[index].toString();
     }
 
     await showDialog<String>(
@@ -241,14 +231,15 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       },
     ).then((value) async {
       if (value != null) {
-        await DataManager().updateDaySubject(day, index, value);
+        await _timetableRepository.updateDaySubject(
+            'current_user_uid', day, index, value);
         await _loadData();
       }
     });
   }
 
   List<DropdownMenuItem<String>> _buildDropdownMenuItems() {
-    Set<String> uniqueSubjects = subjects.toSet();
+    Set<String> uniqueSubjects = _subjects.toSet();
     List<String> sortedSubjects = uniqueSubjects.toList()..sort();
     sortedSubjects.insert(0, ''); // 空の選択肢を最初に追加
 
@@ -276,14 +267,12 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
         ListTile(
           title: Text("時間数の変更"),
           trailing: DropdownButton<int>(
-            value: times,
+            value: _timetable.times,
             onChanged: (int? newValue) async {
               if (newValue != null) {
-                await DataManager().updateTimes(newValue);
+                await _timetableRepository.updateTimes(
+                    'current_user_uid', newValue);
                 await _loadData();
-                setState(() {
-                  times = newValue;
-                });
               }
             },
             items: List.generate(
@@ -301,18 +290,20 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               children: [
                 SwitchListTile(
                   title: Text('土曜日を表示する'),
-                  value: DataManager().getSaturdayEnabled(),
-                  onChanged: (bool value) {
-                    DataManager().updateSaturdayEnabled(value);
-                    setState(() {});
+                  value: _timetable.enableSat,
+                  onChanged: (bool value) async {
+                    await _timetableRepository.updateSaturdayEnabled(
+                        'current_user_uid', value);
+                    await _loadData();
                   },
                 ),
                 SwitchListTile(
                   title: Text('日曜日を表示する'),
-                  value: DataManager().getSundayEnabled(),
-                  onChanged: (bool value) {
-                    DataManager().updateSundayEnabled(value);
-                    setState(() {});
+                  value: _timetable.enableSun,
+                  onChanged: (bool value) async {
+                    await _timetableRepository.updateSundayEnabled(
+                        'current_user_uid', value);
+                    await _loadData();
                   },
                 ),
               ],
@@ -339,34 +330,25 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 child: Column(
                   children: [
                     Expanded(
-                      child: FutureBuilder<List<String>>(
-                        future: _getSubjects(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return CircularProgressIndicator();
-                          }
-                          List<String> subjects = snapshot.data!;
-                          return ListView.builder(
-                            itemCount: subjects.length,
-                            itemBuilder: (context, index) {
-                              if (subjects[index].trim().isEmpty)
-                                return Container();
-                              return ListTile(
-                                title: Text(
-                                  subjects[index],
-                                  style:
-                                      TextStyle(color: Colors.white),
-                                ),
-                                trailing: IconButton(
-                                  icon: Icon(Icons.delete),
-                                  onPressed: () async {
-                                    await DataManager()
-                                        .deleteSubject(subjects[index]);
-                                    setDialogState(() {});
-                                  },
-                                ),
-                              );
-                            },
+                      child: ListView.builder(
+                        itemCount: _subjects.length,
+                        itemBuilder: (context, index) {
+                          if (_subjects[index].trim().isEmpty)
+                            return Container();
+                          return ListTile(
+                            title: Text(
+                              _subjects[index],
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            trailing: IconButton(
+                              icon: Icon(Icons.delete),
+                              onPressed: () async {
+                                await _subjectsRepository.deleteSubject(
+                                    'current_user_uid', _subjects[index]);
+                                await _loadData();
+                                setDialogState(() {});
+                              },
+                            ),
                           );
                         },
                       ),
@@ -392,8 +374,10 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                   onPressed: () async {
                     String subjectName = textEditingController.text.trim();
                     if (subjectName.isNotEmpty &&
-                        !await DataManager().subjectExists(subjectName)) {
-                      await DataManager().addSubject(subjectName);
+                        !_subjects.contains(subjectName)) {
+                      await _subjectsRepository.addSubject(
+                          'current_user_uid', subjectName);
+                      await _loadData();
                       setDialogState(() {});
                       textEditingController.clear();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -413,56 +397,4 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       },
     );
   }
-
-  Future<List<String>> _getSubjects() async {
-    await DataManager().loadData();
-    Map<String, dynamic> timetableData = DataManager().getTimetableData();
-    List<String> subjects = List<String>.from(
-        timetableData['sub']?.map((subject) => subject.toString()) ?? []);
-    subjects = subjects.where((subject) => subject.trim().isNotEmpty).toList();
-    return subjects;
-  }
-
-  void showChangeTimesDialog(BuildContext context) async {
-    await showDialog<int>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('時間数を選択してください'),
-          content: DropdownButton<int>(
-            value: times,
-            onChanged: (value) async {
-              if (value != null) {
-                await DataManager().updateTimes(value);
-                await _loadData();
-              }
-            },
-            items: List.generate(
-              10,
-              (index) => DropdownMenuItem<int>(
-                value: index + 1,
-                child: Text(
-                  '${index + 1}時間',
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void updateSaturdayEnabled(bool value) async {
-    await DataManager().updateSaturdayEnabled(value);
-    await _loadData();
-  }
-
-  void updateSundayEnabled(bool value) async {
-    await DataManager().updateSundayEnabled(value);
-    await _loadData();
-  }
-
-  bool get saturday => _saturday;
-  bool get sunday => _sunday;
 }
