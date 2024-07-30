@@ -9,21 +9,21 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
-  // WidgetsFlutterBinding.ensureInitialized();
-  // SharedPreferences prefs = await SharedPreferences.getInstance();
-  // WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  // String? themeModeString = prefs.getString('themeMode');
-  // ThemeMode themeMode;
-  // if (themeModeString == 'ThemeMode.light') {
-  //   themeMode = ThemeMode.light;
-  // } else if (themeModeString == 'ThemeMode.dark') {
-  //   themeMode = ThemeMode.dark;
-  // } else {
-  //   themeMode = ThemeMode.system;
-  // }
-  // FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
-  // runApp(MyApp(initialThemeMode: themeMode));
+  String? themeModeString = prefs.getString('themeMode');
+  ThemeMode themeMode;
+  if (themeModeString == 'ThemeMode.light') {
+    themeMode = ThemeMode.light;
+  } else if (themeModeString == 'ThemeMode.dark') {
+    themeMode = ThemeMode.dark;
+  } else {
+    themeMode = ThemeMode.system;
+  }
+  FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
+  runApp(MyApp(initialThemeMode: themeMode));
 }
 
 class MyApp extends StatefulWidget {
