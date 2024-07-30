@@ -354,7 +354,6 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                               return ListTile(
                                 title: Text(
                                   subjects[index],
-                                  style: TextStyle(color: Colors.white),
                                 ),
                                 trailing: IconButton(
                                   icon: Icon(Icons.delete),
