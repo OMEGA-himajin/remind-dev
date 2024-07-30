@@ -7,8 +7,6 @@ class TimeTableScreen extends StatefulWidget {
   @override
   _TimeTableScreenState createState() => _TimeTableScreenState();
 
-  void showChangeTimesDialog(BuildContext context) {}
-
   Widget buildTimetableSpecificMenuItems(BuildContext context) {
     return _TimeTableScreenState().buildTimetableSpecificMenuItems(context);
   }
@@ -422,36 +420,6 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
         timetableData['sub']?.map((subject) => subject.toString()) ?? []);
     subjects = subjects.where((subject) => subject.trim().isNotEmpty).toList();
     return subjects;
-  }
-
-  void showChangeTimesDialog(BuildContext context) async {
-    await showDialog<int>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('時間数を選択してください'),
-          content: DropdownButton<int>(
-            value: times,
-            onChanged: (value) async {
-              if (value != null) {
-                await DataManager().updateTimes(value);
-                await _loadData();
-              }
-            },
-            items: List.generate(
-              10,
-              (index) => DropdownMenuItem<int>(
-                value: index + 1,
-                child: Text(
-                  '${index + 1}時間',
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 
   void updateSaturdayEnabled(bool value) async {
