@@ -29,9 +29,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Future<void> _loadData() async {
-    await _dataManager.loadData();
+    //await _dataManager.loadData();
+    final data = await _dataManager.getData();
     setState(() {
-      subjects = List<String>.from(_dataManager.getData()['sub'] ?? []);
+      subjects = List<String>.from(data['sub'] ?? []);
       _isLoading = false;
     });
   }
@@ -55,8 +56,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           Expanded(
                             child: LayoutBuilder(
                               builder: (context, constraints) {
-                                final rowHeight =
-                                    (constraints.maxHeight - 80) / 7; // Adjusted the row height to fit 7 rows
+                                final rowHeight = (constraints.maxHeight - 80) /
+                                    7; // Adjusted the row height to fit 7 rows
                                 return TableCalendar(
                                   firstDay: DateTime.utc(2010, 1, 1),
                                   lastDay: DateTime.utc(2100, 1, 1),
@@ -226,42 +227,51 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Widget _buildEventList() {
     final theme = Theme.of(context);
-    final events =
-        _dataManager.getEventsForPeriod(_selectedStartDay, _selectedEndDay);
-
-    if (events.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Text('予定はありません', style: theme.textTheme.bodyMedium),
-      );
-    }
-
-    return Expanded(
-      child: ListView.builder(
-        itemCount: events.length,
-        itemBuilder: (context, index) {
-          final event = events[index];
-          return Card(
-            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            color: theme.cardColor,
-            child: ListTile(
-              title: Text(
-                event['type'] == 'task' ? event['task']! : event['event']!,
-                style: theme.textTheme.titleMedium,
-              ),
-              subtitle: event['type'] == 'task'
-                  ? Text('教科: ${event['subject']!}',
-                      style: theme.textTheme.bodySmall)
-                  : Text(
-                      event['isAllDay'] == true
-                          ? '終日'
-                          : '${event['startTime']} 〜 ${event['endTime']}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-            ),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future:
+          _dataManager.getEventsForPeriod(_selectedStartDay, _selectedEndDay),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator();
+        }
+        if (snapshot.hasError) {
+          return Text('エラーが発生しました: ${snapshot.error}');
+        }
+        final events = snapshot.data ?? [];
+        if (events.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text('予定はありません', style: theme.textTheme.bodyMedium),
           );
-        },
-      ),
+        }
+        return Expanded(
+          child: ListView.builder(
+            itemCount: events.length,
+            itemBuilder: (context, index) {
+              final event = events[index];
+              return Card(
+                margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                color: theme.cardColor,
+                child: ListTile(
+                  title: Text(
+                    event['type'] == 'task' ? event['task']! : event['event']!,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  subtitle: event['type'] == 'task'
+                      ? Text('教科: ${event['subject']!}',
+                          style: theme.textTheme.bodySmall)
+                      : Text(
+                          event['isAllDay'] == true
+                              ? '終日'
+                              : '${event['startTime']} 〜 ${event['endTime']}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -310,7 +320,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           ),
           Expanded(
             child: Stack(
-              children: _buildEventIndicators(day, events),
+              children: _buildEventIndicators(day),
             ),
           ),
         ],
@@ -318,71 +328,84 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  List<Widget> _buildEventIndicators(
-      DateTime day, List<Map<String, dynamic>> events) {
-    final List<Widget> indicators = [];
-    const double eventHeight = 12.0;
-    const double eventSpacing = 2.0;
-    const double horizontalPadding = 2.0;
+  List<Widget> _buildEventIndicators(DateTime day) {
+    return [
+      FutureBuilder<List<Map<String, dynamic>>>(
+        future: _dataManager.getEventsForDay(day),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Container();
+          }
+          if (snapshot.hasError) {
+            return Container();
+          }
+          final events = snapshot.data ?? [];
+          final List<Widget> indicators = [];
+          const double eventHeight = 12.0;
+          const double eventSpacing = 2.0;
+          const double horizontalPadding = 2.0;
 
-    var sortedEvents = [...events]
-      ..sort((a, b) => _getEventDuration(b).compareTo(_getEventDuration(a)));
+          var sortedEvents = [...events]..sort(
+              (a, b) => _getEventDuration(b).compareTo(_getEventDuration(a)));
 
-    Map<String, int> eventPositions = {};
+          Map<String, int> eventPositions = {};
 
-    for (var i = 0; i < sortedEvents.length; i++) {
-      var event = sortedEvents[i];
-      final startDate = DateTime.parse(event['startDateTime']);
-      final endDate = DateTime.parse(event['endDateTime']);
-      final isStart = isSameDay(day, startDate);
-      final isEnd = isSameDay(day, endDate);
-      final isContinuation = day.isAfter(startDate) &&
-          day.isBefore(endDate.add(Duration(days: 1)));
+          for (var i = 0; i < sortedEvents.length; i++) {
+            var event = sortedEvents[i];
+            final startDate = DateTime.parse(event['startDateTime']);
+            final endDate = DateTime.parse(event['endDateTime']);
+            final isStart = isSameDay(day, startDate);
+            final isEnd = isSameDay(day, endDate);
+            final isContinuation = day.isAfter(startDate) &&
+                day.isBefore(endDate.add(Duration(days: 1)));
 
-      if (isStart || isEnd || isContinuation) {
-        int position;
-        if (eventPositions.containsKey(event['id'])) {
-          position = eventPositions[event['id']]!;
-        } else {
-          position = eventPositions.values.isEmpty
-              ? 0
-              : eventPositions.values.reduce(max) + 1;
-          eventPositions[event['id']] = position;
-        }
+            if (isStart || isEnd || isContinuation) {
+              int position;
+              if (eventPositions.containsKey(event['id'])) {
+                position = eventPositions[event['id']]!;
+              } else {
+                position = eventPositions.values.isEmpty
+                    ? 0
+                    : eventPositions.values.reduce(max) + 1;
+                eventPositions[event['id']] = position;
+              }
 
-        bool showLabel = _shouldShowLabel(day, startDate, endDate);
+              bool showLabel = _shouldShowLabel(day, startDate, endDate);
 
-        indicators.add(
-          Positioned(
-            top: position * (eventHeight + eventSpacing),
-            left: isStart ? horizontalPadding : 0,
-            right: isEnd ? horizontalPadding : 0,
-            child: Container(
-              height: eventHeight,
-              decoration: BoxDecoration(
-                color: Color(event['color']),
-                borderRadius: BorderRadius.horizontal(
-                  left: isStart ? Radius.circular(4) : Radius.zero,
-                  right: isEnd ? Radius.circular(4) : Radius.zero,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  showLabel ? event['event'] : '',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+              indicators.add(
+                Positioned(
+                  top: position * (eventHeight + eventSpacing),
+                  left: isStart ? horizontalPadding : 0,
+                  right: isEnd ? horizontalPadding : 0,
+                  child: Container(
+                    height: eventHeight,
+                    decoration: BoxDecoration(
+                      color: Color(event['color']),
+                      borderRadius: BorderRadius.horizontal(
+                        left: isStart ? Radius.circular(4) : Radius.zero,
+                        right: isEnd ? Radius.circular(4) : Radius.zero,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        showLabel ? event['event'] : '',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ),
-          ),
-        );
-      }
-    }
-    return indicators;
+              );
+            }
+          }
+          return Stack(children: indicators);
+        },
+      ),
+    ];
   }
 
   bool _shouldShowLabel(DateTime day, DateTime startDate, DateTime endDate) {

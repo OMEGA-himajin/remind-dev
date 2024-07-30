@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'dart:convert';
 import 'screens/home.dart';
 import 'screens/items.dart';
@@ -8,8 +9,12 @@ import 'screens/timetable.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  String? themeModeString = prefs.getString('themeMode');
+  await Firebase.initializeApp();
+  String themeModeString = await FirebaseFirestore.instance
+      .collection('settings')
+      .doc('themeMode')
+      .get()
+      .then((doc) => doc.exists ? doc.data()!['mode'] : 'ThemeMode.system');
   ThemeMode themeMode;
   if (themeModeString == 'ThemeMode.light') {
     themeMode = ThemeMode.light;
@@ -18,6 +23,7 @@ void main() async {
   } else {
     themeMode = ThemeMode.system;
   }
+  themeMode = ThemeMode.system;
   runApp(MyApp(initialThemeMode: themeMode));
 }
 
@@ -40,11 +46,13 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _changeThemeMode(ThemeMode newThemeMode) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await FirebaseFirestore.instance
+        .collection('settings')
+        .doc('themeMode')
+        .set({'mode': newThemeMode.toString()});
     setState(() {
       _themeMode = newThemeMode;
     });
-    await prefs.setString('themeMode', newThemeMode.toString());
   }
 
   @override
@@ -95,7 +103,7 @@ class MyStatefulWidget extends StatefulWidget {
 class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   static final List<Widget> _screens = [
     const HomeScreen(),
-    const TimeTableScreen(),
+    //const TimeTableScreen(),
     const ItemsScreen(),
     const schedule.ScheduleScreen()
   ];
@@ -200,7 +208,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
 
   Future<List<String>> _getSubjects() async {
     await DataManager().loadData();
-    Map<String, dynamic> timetableData = DataManager().getTimetableData();
+    Map<String, dynamic> timetableData = await DataManager().getTimetableData();
     List<String> subjects = List<String>.from(
         timetableData['sub']?.map((subject) => subject.toString()) ?? []);
     subjects = subjects.where((subject) => subject.trim().isNotEmpty).toList();
@@ -333,47 +341,52 @@ class DataManager {
   }
 
   Future<void> loadData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? jsonString = prefs.getString('timetable');
-    if (jsonString != null) {
-      _data = json.decode(jsonString);
+    DocumentSnapshot snapshot = await FirebaseFirestore.instance
+        .collection('timetable')
+        .doc('data')
+        .get();
+    if (snapshot.exists) {
+      _data = snapshot.data() as Map<String, dynamic>;
     }
 
-    String? eventsJson = prefs.getString('events');
-    if (eventsJson != null) {
-      Map<String, dynamic> eventsMap = json.decode(eventsJson);
-      _events = eventsMap.map((key, value) {
-        return MapEntry(
-          key,
-          (value as List<dynamic>)
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList(),
-        );
-      });
+    QuerySnapshot eventsSnapshot =
+        await FirebaseFirestore.instance.collection('events').get();
+    _events = {};
+    for (var doc in eventsSnapshot.docs) {
+      String key = doc.id;
+      List<dynamic> eventList = doc.data() as List<dynamic>;
+      _events[key] = eventList
+          .map((e) => Map<String, dynamic>.from(e as Map<String, dynamic>))
+          .toList();
     }
   }
 
   Future<void> saveData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String jsonString = json.encode(_data);
-    await prefs.setString('timetable', jsonString);
+    await FirebaseFirestore.instance
+        .collection('timetable')
+        .doc('data')
+        .set(_data);
 
-    Map<String, dynamic> eventsMap = _events.map((key, value) {
-      return MapEntry(key, value);
-    });
-    await prefs.setString('events', json.encode(eventsMap));
+    for (var entry in _events.entries) {
+      await FirebaseFirestore.instance
+          .collection('events')
+          .doc(entry.key)
+          .set({entry.key: entry.value});
+    }
   }
 
-  Map<String, dynamic> getData() {
+  Future<Map<String, dynamic>> getData() async {
+    await loadData();
     return _data;
   }
 
-  void updateData(Map<String, dynamic> newData) {
+  Future<void> updateData(Map<String, dynamic> newData) async {
     _data.addAll(newData);
-    saveData();
+    await saveData();
   }
 
-  Map<String, dynamic> getTimetableData() {
+  Future<Map<String, dynamic>> getTimetableData() async {
+    await loadData();
     return _data;
   }
 
@@ -391,7 +404,8 @@ class DataManager {
     }
   }
 
-  bool subjectExists(String subjectName) {
+  Future<bool> subjectExists(String subjectName) async {
+    await loadData();
     List<String> subjects = List<String>.from(_data['sub'] ?? []);
     return subjects.contains(subjectName);
   }
@@ -411,11 +425,13 @@ class DataManager {
     await saveData();
   }
 
-  bool getSaturdayEnabled() {
+  Future<bool> getSaturdayEnabled() async {
+    await loadData();
     return _data['enable_sat'] ?? true;
   }
 
-  bool getSundayEnabled() {
+  Future<bool> getSundayEnabled() async {
+    await loadData();
     return _data['enable_sun'] ?? true;
   }
 
@@ -441,7 +457,8 @@ class DataManager {
     await saveData();
   }
 
-  List<Map<String, dynamic>> getEventsForDay(DateTime day) {
+  Future<List<Map<String, dynamic>>> getEventsForDay(DateTime day) async {
+    await loadData();
     List<Map<String, dynamic>> events = [];
     String key = day.toIso8601String().split('T')[0];
 
@@ -507,12 +524,14 @@ class DataManager {
     await saveData();
   }
 
-  List<Map<String, dynamic>> getEventsForPeriod(DateTime start, DateTime end) {
+  Future<List<Map<String, dynamic>>> getEventsForPeriod(
+      DateTime start, DateTime end) async {
+    await loadData();
     List<Map<String, dynamic>> events = [];
     for (DateTime day = start;
         day.isBefore(end.add(Duration(days: 1)));
         day = day.add(Duration(days: 1))) {
-      events.addAll(getEventsForDay(day));
+      events.addAll(await getEventsForDay(day));
     }
     return events.toSet().toList();
   }
@@ -520,6 +539,6 @@ class DataManager {
   bool isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
         date1.month == date2.month &&
-        date2.day == date2.day;
+        date1.day == date2.day;
   }
 }

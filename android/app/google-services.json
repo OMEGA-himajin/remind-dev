@@ -7,44 +7,6 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:379390566634:android:f2bde57ed834e42694f793",
-        "android_client_info": {
-          "package_name": "com.example.remind_dev"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyA2_OMMFyL4oxgU5SAnyIYwg82ry7HR5-0"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:379390566634:android:5311a5e875774ada94f793",
-        "android_client_info": {
-          "package_name": "jp.flutter.r"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyA2_OMMFyL4oxgU5SAnyIYwg82ry7HR5-0"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:379390566634:android:72df2f5dfe5070cf94f793",
         "android_client_info": {
           "package_name": "jp.flutter.remind_dev"
