@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../model/firestore_timetables.dart';
 import '../model/firestore_subjects.dart';
+import '../main.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -19,7 +20,18 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   final TimetableRepository _timetableRepository = TimetableRepository();
   final SubjectsRepository _subjectsRepository = SubjectsRepository();
 
-  late Timetable _timetable;
+  Timetable _timetable = Timetable(
+    enableSat: true,
+    enableSun: true,
+    mon: List.filled(10, ''),
+    tue: List.filled(10, ''),
+    wed: List.filled(10, ''),
+    thu: List.filled(10, ''),
+    fri: List.filled(10, ''),
+    sat: List.filled(10, ''),
+    sun: List.filled(10, ''),
+    times: 6,
+  );
   List<String> _subjects = [];
   bool _isLoading = true;
 
@@ -33,21 +45,10 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     setState(() {
       _isLoading = true;
     });
-
-    String uid = 'test_fir'; // Replace with actual user ID
-    _timetable = await _timetableRepository.getTimetable(uid) ??
-        Timetable(
-          enableSat: true,
-          enableSun: true,
-          mon: List.filled(10, ''),
-          tue: List.filled(10, ''),
-          wed: List.filled(10, ''),
-          thu: List.filled(10, ''),
-          fri: List.filled(10, ''),
-          sat: List.filled(10, ''),
-          sun: List.filled(10, ''),
-          times: 6,
-        );
+    Timetable? loadedTimetable = await _timetableRepository.getTimetable(uid);
+    if (loadedTimetable != null) {
+      _timetable = loadedTimetable;
+    }
     _subjects = await _subjectsRepository.getAllSubjects(uid);
 
     setState(() {
@@ -57,6 +58,9 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 5, 53, 8),
       body: Center(
@@ -232,7 +236,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     ).then((value) async {
       if (value != null) {
         await _timetableRepository.updateDaySubject(
-            'current_user_uid', day, index, value);
+            uid, day, index, value);
         await _loadData();
       }
     });
@@ -271,7 +275,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
             onChanged: (int? newValue) async {
               if (newValue != null) {
                 await _timetableRepository.updateTimes(
-                    'current_user_uid', newValue);
+                    uid, newValue);
                 await _loadData();
               }
             },
@@ -293,7 +297,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                   value: _timetable.enableSat,
                   onChanged: (bool value) async {
                     await _timetableRepository.updateSaturdayEnabled(
-                        'current_user_uid', value);
+                        uid, value);
                     await _loadData();
                   },
                 ),
@@ -302,7 +306,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                   value: _timetable.enableSun,
                   onChanged: (bool value) async {
                     await _timetableRepository.updateSundayEnabled(
-                        'current_user_uid', value);
+                        uid, value);
                     await _loadData();
                   },
                 ),
@@ -344,7 +348,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                               icon: Icon(Icons.delete),
                               onPressed: () async {
                                 await _subjectsRepository.deleteSubject(
-                                    'current_user_uid', _subjects[index]);
+                                    uid, _subjects[index]);
                                 await _loadData();
                                 setDialogState(() {});
                               },
@@ -376,7 +380,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                     if (subjectName.isNotEmpty &&
                         !_subjects.contains(subjectName)) {
                       await _subjectsRepository.addSubject(
-                          'current_user_uid', subjectName);
+                          uid, subjectName);
                       await _loadData();
                       setDialogState(() {});
                       textEditingController.clear();

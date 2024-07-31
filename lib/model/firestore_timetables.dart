@@ -1,15 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Timetable {
-  bool enableSat;
-  bool enableSun;
-  List<dynamic> mon;
-  List<dynamic> tue;
-  List<dynamic> wed;
-  List<dynamic> thu;
-  List<dynamic> fri;
-  List<dynamic> sat;
-  List<dynamic> sun;
+  bool enableSat;  bool enableSun;
+  List<String> mon;
+  List<String> tue;
+  List<String> wed;
+  List<String> thu;
+  List<String> fri;
+  List<String> sat;
+  List<String> sun;
   int times;
 
   Timetable({
@@ -44,13 +43,13 @@ class Timetable {
     return Timetable(
       enableSat: map['enable_sat'] ?? true,
       enableSun: map['enable_sun'] ?? true,
-      mon: List<dynamic>.from(map['mon'] ?? []),
-      tue: List<dynamic>.from(map['tue'] ?? []),
-      wed: List<dynamic>.from(map['wed'] ?? []),
-      thu: List<dynamic>.from(map['thu'] ?? []),
-      fri: List<dynamic>.from(map['fri'] ?? []),
-      sat: List<dynamic>.from(map['sat'] ?? []),
-      sun: List<dynamic>.from(map['sun'] ?? []),
+      mon: List<String>.from(map['mon'] ?? List.filled(10, '')),
+      tue: List<String>.from(map['tue'] ?? List.filled(10, '')),
+      wed: List<String>.from(map['wed'] ?? List.filled(10, '')),
+      thu: List<String>.from(map['thu'] ?? List.filled(10, '')),
+      fri: List<String>.from(map['fri'] ?? List.filled(10, '')),
+      sat: List<String>.from(map['sat'] ?? List.filled(10, '')),
+      sun: List<String>.from(map['sun'] ?? List.filled(10, '')),
       times: map['times'] ?? 6,
     );
   }
@@ -78,12 +77,28 @@ class TimetableRepository {
   Future<void> updateDaySubject(String username, String day, int index, String value) async {
     DocumentReference documentReference = _firestore.collection(username).doc('timetables');
     Map<String, dynamic> updateData = {
-      day: FieldValue.arrayRemove([{index.toString(): FieldValue.delete()}])
+      day: FieldValue.arrayRemove([null])
     };
     await documentReference.update(updateData);
     
+    List<String> daySubjects = List<String>.filled(10, '');
+    DocumentSnapshot documentSnapshot = await documentReference.get();
+    if (documentSnapshot.exists) {
+      Map<String, dynamic> data = documentSnapshot.data() as Map<String, dynamic>;
+      daySubjects = List<String>.from(data[day] ?? List.filled(10, ''));
+    }
+    
+    if (index < daySubjects.length) {
+      daySubjects[index] = value;
+    } else {
+      while (daySubjects.length <= index) {
+        daySubjects.add('');
+      }
+      daySubjects[index] = value;
+    }
+    
     updateData = {
-      day: FieldValue.arrayUnion([{index.toString(): value}])
+      day: daySubjects
     };
     await documentReference.update(updateData);
   }

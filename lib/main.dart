@@ -10,12 +10,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
+import '../model/firestore_timetables.dart';
+import '../model/firestore_subjects.dart';
 
+String uid = 'UID';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SharedPreferences prefs = await SharedPreferences.getInstance();
   WidgetsFlutterBinding.ensureInitialized();
-  //String uid = _getDeviceId() as String;
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -32,8 +34,7 @@ void main() async {
   runApp(MyApp(initialThemeMode: themeMode));
 }
 
-class _getDeviceId {
-}
+class _getDeviceId {}
 
 class MyApp extends StatefulWidget {
   final ThemeMode initialThemeMode;
@@ -122,6 +123,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
 
   void _showAddSubjectDialog(BuildContext context) async {
     TextEditingController textEditingController = TextEditingController();
+    SubjectsRepository _subjectsRepository = SubjectsRepository();
 
     await showDialog<String>(
       context: context,
@@ -137,7 +139,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                   children: [
                     Expanded(
                       child: FutureBuilder<List<String>>(
-                        future: _getSubjects(),
+                        future: _subjectsRepository.getAllSubjects(uid),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
                             return CircularProgressIndicator();
@@ -156,8 +158,8 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                                 trailing: IconButton(
                                   icon: Icon(Icons.delete),
                                   onPressed: () async {
-                                    await DataManager()
-                                        .deleteSubject(subjects[index]);
+                                    await _subjectsRepository.deleteSubject(
+                                        uid, subjects[index]);
                                     setDialogState(() {});
                                   },
                                 ),
@@ -187,9 +189,8 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                   child: const Text('追加'),
                   onPressed: () async {
                     String subjectName = textEditingController.text.trim();
-                    if (subjectName.isNotEmpty &&
-                        !await DataManager().subjectExists(subjectName)) {
-                      await DataManager().addSubject(subjectName);
+                    if (subjectName.isNotEmpty) {
+                      await _subjectsRepository.addSubject(uid, subjectName);
                       setDialogState(() {});
                       textEditingController.clear();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -197,7 +198,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('すでに同じ名前の教科が存在するか空白です。')),
+                        SnackBar(content: Text('教科名が空白です。')),
                       );
                     }
                   },
@@ -576,7 +577,7 @@ class DataManager {
         date2.day == date2.day;
   }
 
-Future<String> _getDeviceId() async {
+  Future<String> _getDeviceId() async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     if (Platform.isAndroid) {
       AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
