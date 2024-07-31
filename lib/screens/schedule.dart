@@ -3,6 +3,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import '../main.dart';
+import 'dart:math' show max;
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -55,10 +56,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             child: LayoutBuilder(
                               builder: (context, constraints) {
                                 final rowHeight =
-                                    (constraints.maxHeight - 80) / 6;
+                                    (constraints.maxHeight - 80) / 7; // Adjusted the row height to fit 7 rows
                                 return TableCalendar(
                                   firstDay: DateTime.utc(2010, 1, 1),
-                                  lastDay: DateTime.utc(2030, 1, 1),
+                                  lastDay: DateTime.utc(2100, 1, 1),
                                   focusedDay: _focusedDay,
                                   onDaySelected: _onDaySelected,
                                   calendarStyle: CalendarStyle(
@@ -66,6 +67,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                         TextStyle(color: Colors.red),
                                     defaultTextStyle: textTheme.bodyMedium!
                                         .copyWith(color: primaryColor),
+                                    tableBorder: TableBorder.all(
+                                      color: Colors.grey.shade300,
+                                      width: 0.5,
+                                    ),
                                   ),
                                   calendarBuilders: CalendarBuilders(
                                     defaultBuilder:
@@ -271,20 +276,24 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 ? Colors.white
                 : Colors.black;
 
+    final events = _dataManager.getEventsForDay(day);
+
     return Container(
       height: cellHeight,
       decoration: BoxDecoration(
         border: Border(
+          top: BorderSide(color: Colors.grey.shade300, width: 0.5),
+          left: BorderSide(color: Colors.grey.shade300, width: 0.5),
           right: BorderSide(color: Colors.grey.shade300, width: 0.5),
           bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
         ),
       ),
-      child: Stack(
+      child: Column(
         children: [
-          Positioned(
-            top: 2,
-            left: 2,
+          Align(
+            alignment: Alignment.topLeft,
             child: Container(
+              margin: EdgeInsets.all(2),
               padding: EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -299,7 +308,153 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               ),
             ),
           ),
+          Expanded(
+            child: Stack(
+              children: _buildEventIndicators(day, events),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _buildEventIndicators(
+      DateTime day, List<Map<String, dynamic>> events) {
+    final List<Widget> indicators = [];
+    const double eventHeight = 12.0;
+    const double eventSpacing = 2.0;
+    const double horizontalPadding = 2.0;
+
+    var sortedEvents = [...events]
+      ..sort((a, b) => _getEventDuration(b).compareTo(_getEventDuration(a)));
+
+    Map<String, int> eventPositions = {};
+
+    for (var i = 0; i < sortedEvents.length; i++) {
+      var event = sortedEvents[i];
+      final startDate = DateTime.parse(event['startDateTime']);
+      final endDate = DateTime.parse(event['endDateTime']);
+      final isStart = isSameDay(day, startDate);
+      final isEnd = isSameDay(day, endDate);
+      final isContinuation = day.isAfter(startDate) &&
+          day.isBefore(endDate.add(Duration(days: 1)));
+
+      if (isStart || isEnd || isContinuation) {
+        int position;
+        if (eventPositions.containsKey(event['id'])) {
+          position = eventPositions[event['id']]!;
+        } else {
+          position = eventPositions.values.isEmpty
+              ? 0
+              : eventPositions.values.reduce(max) + 1;
+          eventPositions[event['id']] = position;
+        }
+
+        bool showLabel = _shouldShowLabel(day, startDate, endDate);
+
+        indicators.add(
+          Positioned(
+            top: position * (eventHeight + eventSpacing),
+            left: isStart ? horizontalPadding : 0,
+            right: isEnd ? horizontalPadding : 0,
+            child: Container(
+              height: eventHeight,
+              decoration: BoxDecoration(
+                color: Color(event['color']),
+                borderRadius: BorderRadius.horizontal(
+                  left: isStart ? Radius.circular(4) : Radius.zero,
+                  right: isEnd ? Radius.circular(4) : Radius.zero,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  showLabel ? event['event'] : '',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return indicators;
+  }
+
+  bool _shouldShowLabel(DateTime day, DateTime startDate, DateTime endDate) {
+    // 開始日の場合は true
+    if (isSameDay(day, startDate)) return true;
+
+    // 終了日の場合は true
+    if (isSameDay(day, endDate)) return true;
+
+    // 開始日の次の週の月曜日を計算
+    DateTime startOfNextWeek =
+        startDate.add(Duration(days: 7 - startDate.weekday + 1));
+
+    // 終了日の前の週の日曜日を計算
+    DateTime endOfPreviousWeek =
+        endDate.subtract(Duration(days: endDate.weekday));
+
+    // 開始日の次の週から終了日の前の週までの間にある水曜日の場合は true
+    if (day.isAfter(startOfNextWeek) &&
+        day.isBefore(endOfPreviousWeek) &&
+        day.weekday == DateTime.wednesday) {
+      return true;
+    }
+
+    return false;
+  }
+
+  bool isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
+  }
+
+  Duration _getEventDuration(Map<String, dynamic> event) {
+    final startDate = DateTime.parse(event['startDateTime']);
+    final endDate = DateTime.parse(event['endDateTime']);
+    return endDate.difference(startDate);
+  }
+
+  Widget _buildEventIndicator(DateTime day, Map<String, dynamic> event) {
+    final startDate = DateTime.parse(event['startDateTime']);
+    final endDate = DateTime.parse(event['endDateTime']);
+    final isStart = isSameDay(day, startDate);
+    final isEnd = isSameDay(day, endDate);
+    //final isContinuation = day.isAfter(startDate) && day.isBefore(endDate);
+
+    const double gapSize = 2.0;
+
+    return Positioned(
+      top: 0,
+      left: isStart ? gapSize : 0,
+      right: isEnd ? gapSize : 0,
+      child: Container(
+        height: 20,
+        decoration: BoxDecoration(
+          color: Color(event['color']),
+          borderRadius: BorderRadius.horizontal(
+            left: isStart ? Radius.circular(4) : Radius.zero,
+            right: isEnd ? Radius.circular(4) : Radius.zero,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            isStart || isEnd ? event['event'] : '',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ),
     );
   }
@@ -313,7 +468,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final _endDateTimeController = TextEditingController();
     var selectedType = 'event';
     var selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
-    var selectedColor = Colors.blue;
+    Color selectedColor = Colors.blue; // Changed from MaterialColor to Color
     var startDateTime = _selectedStartDay;
     var endDateTime = _selectedEndDay;
     var isAllDay = false;
@@ -337,42 +492,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DropdownButtonFormField<String>(
-                    value: selectedType,
-                    decoration: InputDecoration(
-                      labelText: '追加する項目',
-                      labelStyle: theme.textTheme.bodyMedium,
-                    ),
-                    style: theme.textTheme.bodyMedium,
-                    onChanged: (value) {
+                  SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment(value: 'event', label: Text('予定')),
+                      ButtonSegment(value: 'task', label: Text('課題')),
+                    ],
+                    selected: {selectedType},
+                    onSelectionChanged: (Set<String> newSelection) {
                       setState(() {
-                        selectedType = value!;
-                        _eventController.clear();
-                        _contentController.clear();
-                        _startDateController.text =
-                            DateFormat('yyyy-MM-dd').format(startDateTime);
-                        _endDateController.text =
-                            DateFormat('yyyy-MM-dd').format(endDateTime);
-                        _startDateTimeController.text =
-                            DateFormat('yyyy-MM-dd HH:mm')
-                                .format(startDateTime);
-                        _endDateTimeController.text =
-                            DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
-                        selectedSubject =
-                            subjects.isNotEmpty ? subjects[0] : '';
-                        isAllDay = false;
+                        selectedType = newSelection.first;
                       });
                     },
-                    items: [
-                      DropdownMenuItem<String>(
-                          value: 'event', child: Text('予定')),
-                      DropdownMenuItem<String>(
-                          value: 'task', child: Text('課題')),
-                    ],
                   ),
                   SizedBox(height: 16.0),
                   ListTile(
-                    title: Text('色を選択', style: theme.textTheme.bodyMedium),
+                    title: Text('ラベルの色', style: theme.textTheme.bodyMedium),
                     trailing: Container(
                       width: 24,
                       height: 24,
@@ -392,7 +526,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 pickerColor: selectedColor,
                                 onColorChanged: (Color color) {
                                   setState(() {
-                                    var selectedColor = Colors.blue as Color;
+                                    selectedColor = color;
                                   });
                                 },
                                 pickerAreaHeightPercent: 0.8,
@@ -704,11 +838,5 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     _dataManager.addEvent(event);
 
     setState(() {});
-  }
-
-  bool isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
   }
 }

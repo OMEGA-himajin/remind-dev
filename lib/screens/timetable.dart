@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../model/firestore_timetables.dart';
 import '../model/firestore_subjects.dart';
-import '../main.dart';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -9,31 +8,25 @@ class TimeTableScreen extends StatefulWidget {
   @override
   _TimeTableScreenState createState() => _TimeTableScreenState();
 
-  void showChangeTimesDialog(BuildContext context) {}
-
   Widget buildTimetableSpecificMenuItems(BuildContext context) {
     return _TimeTableScreenState().buildTimetableSpecificMenuItems(context);
   }
 }
 
 class _TimeTableScreenState extends State<TimeTableScreen> {
-  final TimetableRepository _timetableRepository = TimetableRepository();
-  final SubjectsRepository _subjectsRepository = SubjectsRepository();
+  late Map<String, dynamic> data = {};
+  bool _saturday = true;
+  bool _sunday = true;
+  int times = 6;
 
-  Timetable _timetable = Timetable(
-    enableSat: true,
-    enableSun: true,
-    mon: List.filled(10, ''),
-    tue: List.filled(10, ''),
-    wed: List.filled(10, ''),
-    thu: List.filled(10, ''),
-    fri: List.filled(10, ''),
-    sat: List.filled(10, ''),
-    sun: List.filled(10, ''),
-    times: 6,
-  );
-  List<String> _subjects = [];
-  bool _isLoading = true;
+  List<String> mon = List.filled(10, '');
+  List<String> tue = List.filled(10, '');
+  List<String> wed = List.filled(10, '');
+  List<String> thu = List.filled(10, '');
+  List<String> fri = List.filled(10, '');
+  List<String> sat = List.filled(10, '');
+  List<String> sun = List.filled(10, '');
+  List<String> subjects = [''];
 
   @override
   void initState() {
@@ -41,104 +34,198 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _updateSubjects() async {
+    List<String> timetableSubjects = await FirestoreSubjects.getSubjects();
     setState(() {
-      _isLoading = true;
+      subjects = timetableSubjects
+          .where((subject) => subject.trim().isNotEmpty)
+          .toList();
     });
-    Timetable? loadedTimetable = await _timetableRepository.getTimetable(uid);
-    if (loadedTimetable != null) {
-      _timetable = loadedTimetable;
-    }
-    _subjects = await _subjectsRepository.getAllSubjects(uid);
+  }
 
+  Future<void> _loadData() async {
+    Map<String, dynamic> timetableData =
+        await FirestoreTimetables.getTimetableData();
     setState(() {
-      _isLoading = false;
+      data = timetableData;
+      times = data['times'] ?? 6;
+      _saturday = data['enable_sat'] ?? true;
+      _sunday = data['enable_sun'] ?? true;
+      mon = List<String>.from(data['mon'] ?? List.filled(10, ''));
+      tue = List<String>.from(data['tue'] ?? List.filled(10, ''));
+      wed = List<String>.from(data['wed'] ?? List.filled(10, ''));
+      thu = List<String>.from(data['thu'] ?? List.filled(10, ''));
+      fri = List<String>.from(data['fri'] ?? List.filled(10, ''));
+      sat = List<String>.from(data['sat'] ?? List.filled(10, ''));
+      sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
+      subjects = List<String>.from(data['sub'] ?? []);
+      subjects =
+          subjects.where((subject) => subject.trim().isNotEmpty).toList();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Center(child: CircularProgressIndicator());
-    }
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 5, 53, 8),
-      body: Center(
-        child: DefaultTextStyle(
-          style: const TextStyle(color: Colors.white),
-          child: Table(
-            border: TableBorder.all(color: Colors.white, width: 2),
-            defaultColumnWidth: const FlexColumnWidth(),
-            columnWidths: const {0: FixedColumnWidth(50.0)},
-            children: [
-              TableRow(
+      body: Stack(
+        children: [
+          Center(
+            child: DefaultTextStyle(
+              style: const TextStyle(color: Colors.white),
+              child: Table(
+                border: TableBorder.all(color: Colors.white, width: 2),
+                defaultColumnWidth: const FlexColumnWidth(),
+                columnWidths: const {0: FixedColumnWidth(50.0)},
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text(' '),
+                  TableRow(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text(' '),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text('月'),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text('火'),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text('水'),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text('木'),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text('金'),
+                      ),
+                      if (_saturday)
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('土'),
+                        ),
+                      if (_sunday)
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text('日'),
+                        ),
+                    ],
                   ),
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('月'),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('火'),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('水'),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('木'),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('金'),
-                  ),
-                  if (_timetable.enableSat)
-                    const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text('土'),
-                    ),
-                  if (_timetable.enableSun)
-                    const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text('日'),
+                  for (int i = 1; i <= times; i++)
+                    TableRow(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(2.0),
+                          child: SizedBox(
+                            height: 50,
+                            child: Center(child: Text('$i')),
+                          ),
+                        ),
+                        _buildTableCell(context, 'mon', mon, i),
+                        _buildTableCell(context, 'tue', tue, i),
+                        _buildTableCell(context, 'wed', wed, i),
+                        _buildTableCell(context, 'thu', thu, i),
+                        _buildTableCell(context, 'fri', fri, i),
+                        if (_saturday) _buildTableCell(context, 'sat', sat, i),
+                        if (_sunday) _buildTableCell(context, 'sun', sun, i),
+                      ],
                     ),
                 ],
               ),
-              for (int i = 1; i <= _timetable.times; i++)
-                TableRow(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(2.0),
-                      child: SizedBox(
-                        height: 50,
-                        child: Center(child: Text('$i')),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: PopupMenuButton(
+              icon: Icon(Icons.settings, color: Colors.white),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              itemBuilder: (BuildContext context) {
+                return [
+                  PopupMenuItem(
+                    child: ListTile(
+                      title: Text("教科の追加"),
+                      trailing: Icon(Icons.add),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showAddSubjectDialog(context);
+                      },
+                    ),
+                  ),
+                  PopupMenuItem(
+                    child: ListTile(
+                      title: Text("時間数の変更"),
+                      trailing: DropdownButton<int>(
+                        value: times,
+                        onChanged: (int? newValue) async {
+                          if (newValue != null) {
+                            await FirestoreTimetables.updateTimes(newValue);
+                            await _loadData();
+                            setState(() {
+                              times = newValue;
+                            });
+                          }
+                        },
+                        items: List.generate(
+                          10,
+                          (index) => DropdownMenuItem<int>(
+                            value: index + 1,
+                            child: Text('${index + 1}時間'),
+                          ),
+                        ),
                       ),
                     ),
-                    _buildTableCell(context, 'mon', _timetable.mon, i),
-                    _buildTableCell(context, 'tue', _timetable.tue, i),
-                    _buildTableCell(context, 'wed', _timetable.wed, i),
-                    _buildTableCell(context, 'thu', _timetable.thu, i),
-                    _buildTableCell(context, 'fri', _timetable.fri, i),
-                    if (_timetable.enableSat)
-                      _buildTableCell(context, 'sat', _timetable.sat, i),
-                    if (_timetable.enableSun)
-                      _buildTableCell(context, 'sun', _timetable.sun, i),
-                  ],
-                ),
-            ],
+                  ),
+                  PopupMenuItem(
+                    child: StatefulBuilder(
+                      builder: (BuildContext context, StateSetter setState) {
+                        return Column(
+                          children: [
+                            SwitchListTile(
+                              title: Text('土曜日を表示する'),
+                              value: _saturday,
+                              onChanged: (bool value) async {
+                                await FirestoreTimetables.updateSaturdayEnabled(
+                                    value);
+                                setState(() {
+                                  _saturday = value;
+                                });
+                              },
+                            ),
+                            SwitchListTile(
+                              title: Text('日曜日を表示する'),
+                              value: _sunday,
+                              onChanged: (bool value) async {
+                                await FirestoreTimetables.updateSundayEnabled(
+                                    value);
+                                setState(() {
+                                  _sunday = value;
+                                });
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ];
+              },
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildTableCell(
-      BuildContext context, String day, List<dynamic> list, int i) {
+      BuildContext context, String day, List<String> list, int i) {
     return GestureDetector(
       onTap: () {
         _showInputDialog(context, day, i - 1);
@@ -148,7 +235,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
         color: Colors.transparent,
         alignment: Alignment.center,
         child: Text(
-          list[i - 1].toString(),
+          list[i - 1],
           textAlign: TextAlign.center,
           style: const TextStyle(color: Colors.white),
         ),
@@ -158,35 +245,35 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
 
   void _showInputDialog(BuildContext context, String day, int index) async {
     String? selectedSubject = '';
-    List<dynamic> currentDayList;
+    List<String> currentDayList;
     String dayName;
     switch (day) {
       case 'mon':
-        currentDayList = _timetable.mon;
+        currentDayList = mon;
         dayName = '月曜日';
         break;
       case 'tue':
-        currentDayList = _timetable.tue;
+        currentDayList = tue;
         dayName = '火曜日';
         break;
       case 'wed':
-        currentDayList = _timetable.wed;
+        currentDayList = wed;
         dayName = '水曜日';
         break;
       case 'thu':
-        currentDayList = _timetable.thu;
+        currentDayList = thu;
         dayName = '木曜日';
         break;
       case 'fri':
-        currentDayList = _timetable.fri;
+        currentDayList = fri;
         dayName = '金曜日';
         break;
       case 'sat':
-        currentDayList = _timetable.sat;
+        currentDayList = sat;
         dayName = '土曜日';
         break;
       case 'sun':
-        currentDayList = _timetable.sun;
+        currentDayList = sun;
         dayName = '日曜日';
         break;
       default:
@@ -195,9 +282,9 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     }
 
     if (index < currentDayList.length) {
-      selectedSubject = currentDayList[index].toString();
+      selectedSubject = currentDayList[index];
     }
-
+    await _loadData();
     await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -205,15 +292,28 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: Text('$dayNameの${index + 1}時間目の教科を選択'),
-              content: DropdownButton<String>(
-                value: selectedSubject,
-                onChanged: (String? newValue) {
-                  setState(() {
-                    selectedSubject = newValue;
-                  });
-                },
-                items: _buildDropdownMenuItems(),
-                isExpanded: true,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButton<String>(
+                    value: selectedSubject,
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        selectedSubject = newValue;
+                      });
+                    },
+                    items: _buildDropdownMenuItems(),
+                    isExpanded: true,
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showAddSubjectDialog(context);
+                    },
+                    child: Text('教科を追加+'),
+                  ),
+                ],
               ),
               actions: <Widget>[
                 TextButton(
@@ -235,17 +335,16 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       },
     ).then((value) async {
       if (value != null) {
-        await _timetableRepository.updateDaySubject(
-            uid, day, index, value);
+        await FirestoreTimetables.updateDaySubject(day, index, value);
         await _loadData();
       }
     });
   }
 
   List<DropdownMenuItem<String>> _buildDropdownMenuItems() {
-    Set<String> uniqueSubjects = _subjects.toSet();
+    Set<String> uniqueSubjects = subjects.toSet();
     List<String> sortedSubjects = uniqueSubjects.toList()..sort();
-    sortedSubjects.insert(0, ''); // 空の選択肢を最初に追加
+    sortedSubjects.insert(0, '');
 
     return sortedSubjects.map((String subject) {
       return DropdownMenuItem<String>(
@@ -259,59 +358,78 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   }
 
   Widget buildTimetableSpecificMenuItems(BuildContext context) {
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        ListTile(
-          title: Text("教科の追加"),
-          trailing: Icon(Icons.add),
-          onTap: () {
-            _showAddSubjectDialog(context);
-          },
-        ),
-        ListTile(
-          title: Text("時間数の変更"),
-          trailing: DropdownButton<int>(
-            value: _timetable.times,
-            onChanged: (int? newValue) async {
-              if (newValue != null) {
-                await _timetableRepository.updateTimes(
-                    uid, newValue);
-                await _loadData();
-              }
-            },
-            items: List.generate(
-              10,
-              (index) => DropdownMenuItem<int>(
-                value: index + 1,
-                child: Text('${index + 1}時間'),
+        PopupMenuButton(
+          itemBuilder: (BuildContext context) {
+            return [
+              PopupMenuItem(
+                child: ListTile(
+                  title: Text("教科の追加"),
+                  trailing: Icon(Icons.add),
+                  onTap: () {
+                    _showAddSubjectDialog(context);
+                  },
+                ),
               ),
-            ),
-          ),
-        ),
-        StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Column(
-              children: [
-                SwitchListTile(
-                  title: Text('土曜日を表示する'),
-                  value: _timetable.enableSat,
-                  onChanged: (bool value) async {
-                    await _timetableRepository.updateSaturdayEnabled(
-                        uid, value);
-                    await _loadData();
+              PopupMenuItem(
+                child: ListTile(
+                  title: Text("時間数の変更"),
+                  trailing: DropdownButton<int>(
+                    value: times,
+                    onChanged: (int? newValue) async {
+                      if (newValue != null) {
+                        await FirestoreTimetables.updateTimes(newValue);
+                        await _loadData();
+                        setState(() {
+                          times = newValue;
+                        });
+                      }
+                    },
+                    items: List.generate(
+                      10,
+                      (index) => DropdownMenuItem<int>(
+                        value: index + 1,
+                        child: Text('${index + 1}時間'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              PopupMenuItem(
+                child: StatefulBuilder(
+                  builder: (BuildContext context, StateSetter setState) {
+                    return Column(
+                      children: [
+                        SwitchListTile(
+                          title: Text('土曜日を表示する'),
+                          value: _saturday,
+                          onChanged: (bool value) async {
+                            await FirestoreTimetables.updateSaturdayEnabled(
+                                value);
+                            setState(() {
+                              _saturday = value;
+                            });
+                          },
+                        ),
+                        SwitchListTile(
+                          title: Text('日曜日を表示する'),
+                          value: _sunday,
+                          onChanged: (bool value) async {
+                            await FirestoreTimetables.updateSundayEnabled(
+                                value);
+                            setState(() {
+                              _sunday = value;
+                            });
+                          },
+                        ),
+                      ],
+                    );
                   },
                 ),
-                SwitchListTile(
-                  title: Text('日曜日を表示する'),
-                  value: _timetable.enableSun,
-                  onChanged: (bool value) async {
-                    await _timetableRepository.updateSundayEnabled(
-                        uid, value);
-                    await _loadData();
-                  },
-                ),
-              ],
-            );
+              ),
+            ];
           },
         ),
       ],
@@ -334,25 +452,32 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 child: Column(
                   children: [
                     Expanded(
-                      child: ListView.builder(
-                        itemCount: _subjects.length,
-                        itemBuilder: (context, index) {
-                          if (_subjects[index].trim().isEmpty)
-                            return Container();
-                          return ListTile(
-                            title: Text(
-                              _subjects[index],
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            trailing: IconButton(
-                              icon: Icon(Icons.delete),
-                              onPressed: () async {
-                                await _subjectsRepository.deleteSubject(
-                                    uid, _subjects[index]);
-                                await _loadData();
-                                setDialogState(() {});
-                              },
-                            ),
+                      child: FutureBuilder<List<String>>(
+                        future: FirestoreSubjects.getSubjects(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return CircularProgressIndicator();
+                          }
+                          List<String> subjects = snapshot.data!;
+                          return ListView.builder(
+                            itemCount: subjects.length,
+                            itemBuilder: (context, index) {
+                              if (subjects[index].trim().isEmpty)
+                                return Container();
+                              return ListTile(
+                                title: Text(
+                                  subjects[index],
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(Icons.delete),
+                                  onPressed: () async {
+                                    await FirestoreSubjects.deleteSubject(
+                                        subjects[index]);
+                                    setDialogState(() {});
+                                  },
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
@@ -378,10 +503,8 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                   onPressed: () async {
                     String subjectName = textEditingController.text.trim();
                     if (subjectName.isNotEmpty &&
-                        !_subjects.contains(subjectName)) {
-                      await _subjectsRepository.addSubject(
-                          uid, subjectName);
-                      await _loadData();
+                        !await FirestoreSubjects.subjectExists(subjectName)) {
+                      await FirestoreSubjects.addSubject(subjectName);
                       setDialogState(() {});
                       textEditingController.clear();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -401,4 +524,23 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       },
     );
   }
+
+  Future<List<String>> _getSubjects() async {
+    List<String> subjects = await FirestoreSubjects.getSubjects();
+    subjects = subjects.where((subject) => subject.trim().isNotEmpty).toList();
+    return subjects;
+  }
+
+  void updateSaturdayEnabled(bool value) async {
+    await FirestoreTimetables.updateSaturdayEnabled(value);
+    await _loadData();
+  }
+
+  void updateSundayEnabled(bool value) async {
+    await FirestoreTimetables.updateSundayEnabled(value);
+    await _loadData();
+  }
+
+  bool get saturday => _saturday;
+  bool get sunday => _sunday;
 }

@@ -1,56 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../main.dart';
 
-class SubjectsRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class FirestoreSubjects {
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final String _collection = 'subjects';
 
-  Future<void> addSubject(String username, String subjectName) async {
-    DocumentReference documentReference =
-        _firestore.collection(username).doc('subjects');
-
-    await documentReference.set({
-      subjectName: [],
-    }, SetOptions(merge: true));
+  static Future<List<String>> getSubjects() async {
+    QuerySnapshot querySnapshot = await _firestore.collection(uid).doc(_collection).collection('items').get();
+    return querySnapshot.docs.map((doc) => doc.id).toList();
   }
 
-  Future<List<String>> getAllSubjects(String username) async {
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(username).doc('subjects').get();
-
-    if (documentSnapshot.exists) {
-      Map<String, dynamic> data = documentSnapshot.data() as Map<String, dynamic>;
-      return data.keys.toList();
-    } else {
-      return [];
-    }
+  static Future<void> addSubject(String subject) async {
+    await _firestore.collection(uid).doc(_collection).collection('items').doc(subject).set({});
   }
 
-  Future<void> deleteSubject(String username, String subjectName) async {
-    DocumentReference documentReference =
-        _firestore.collection(username).doc('subjects');
-
-    await documentReference.update({
-      subjectName: FieldValue.delete(),
-    });
+  static Future<void> deleteSubject(String subject) async {
+    await _firestore.collection(uid).doc(_collection).collection('items').doc(subject).delete();
   }
 
-  Future<void> addUuidToSubject(String username, String subjectName, String uuid) async {
-    DocumentReference documentReference =
-        _firestore.collection(username).doc('subjects');
-
-    await documentReference.update({
-      subjectName: FieldValue.arrayUnion([uuid]),
-    });
-  }
-
-  Future<List<String>> getSubjectUuids(String username, String subjectName) async {
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(username).doc('subjects').get();
-
-    if (documentSnapshot.exists) {
-      Map<String, dynamic> data = documentSnapshot.data() as Map<String, dynamic>;
-      return List<String>.from(data[subjectName] ?? []);
-    } else {
-      return [];
-    }
+  static Future<bool> subjectExists(String subject) async {
+    DocumentSnapshot doc = await _firestore.collection(uid).doc(_collection).collection('items').doc(subject).get();
+    return doc.exists;
   }
 }

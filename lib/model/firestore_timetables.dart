@@ -1,120 +1,56 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../main.dart';
 
-class Timetable {
-  bool enableSat;  bool enableSun;
-  List<String> mon;
-  List<String> tue;
-  List<String> wed;
-  List<String> thu;
-  List<String> fri;
-  List<String> sat;
-  List<String> sun;
-  int times;
+class FirestoreTimetables {
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final String _collection = 'timetables';
 
-  Timetable({
-    required this.enableSat,
-    required this.enableSun,
-    required this.mon,
-    required this.tue,
-    required this.wed,
-    required this.thu,
-    required this.fri,
-    required this.sat,
-    required this.sun,
-    required this.times,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'enable_sat': enableSat,
-      'enable_sun': enableSun,
-      'mon': mon,
-      'tue': tue,
-      'wed': wed,
-      'thu': thu,
-      'fri': fri,
-      'sat': sat,
-      'sun': sun,
-      'times': times,
-    };
-  }
-
-  static Timetable fromMap(Map<String, dynamic> map) {
-    return Timetable(
-      enableSat: map['enable_sat'] ?? true,
-      enableSun: map['enable_sun'] ?? true,
-      mon: List<String>.from(map['mon'] ?? List.filled(10, '')),
-      tue: List<String>.from(map['tue'] ?? List.filled(10, '')),
-      wed: List<String>.from(map['wed'] ?? List.filled(10, '')),
-      thu: List<String>.from(map['thu'] ?? List.filled(10, '')),
-      fri: List<String>.from(map['fri'] ?? List.filled(10, '')),
-      sat: List<String>.from(map['sat'] ?? List.filled(10, '')),
-      sun: List<String>.from(map['sun'] ?? List.filled(10, '')),
-      times: map['times'] ?? 6,
-    );
-  }
-}
-
-class TimetableRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  Future<Timetable?> getTimetable(String username) async {
-    DocumentSnapshot documentSnapshot =
-        await _firestore.collection(username).doc('timetables').get();
-
-    if (documentSnapshot.exists) {
-      return Timetable.fromMap(documentSnapshot.data() as Map<String, dynamic>);
-    }
-    return null;
-  }
-
-  Future<void> updateTimetable(String username, Timetable timetable) async {
-    DocumentReference documentReference =
-        _firestore.collection(username).doc('timetables');
-    await documentReference.set(timetable.toMap(), SetOptions(merge: true));
-  }
-
-  Future<void> updateDaySubject(String username, String day, int index, String value) async {
-    DocumentReference documentReference = _firestore.collection(username).doc('timetables');
-    Map<String, dynamic> updateData = {
-      day: FieldValue.arrayRemove([null])
-    };
-    await documentReference.update(updateData);
-    
-    List<String> daySubjects = List<String>.filled(10, '');
-    DocumentSnapshot documentSnapshot = await documentReference.get();
-    if (documentSnapshot.exists) {
-      Map<String, dynamic> data = documentSnapshot.data() as Map<String, dynamic>;
-      daySubjects = List<String>.from(data[day] ?? List.filled(10, ''));
-    }
-    
-    if (index < daySubjects.length) {
-      daySubjects[index] = value;
+  static Future<Map<String, dynamic>> getTimetableData() async {
+    DocumentSnapshot doc = await _firestore.collection(uid).doc(_collection).get();
+    if (doc.exists) {
+      return doc.data() as Map<String, dynamic>;
     } else {
-      while (daySubjects.length <= index) {
-        daySubjects.add('');
-      }
-      daySubjects[index] = value;
+      return {};
     }
-    
-    updateData = {
-      day: daySubjects
-    };
-    await documentReference.update(updateData);
   }
 
-  Future<void> updateTimes(String username, int times) async {
-    DocumentReference documentReference = _firestore.collection(username).doc('timetables');
-    await documentReference.update({'times': times});
+  static Future<void> updateTimetableData(Map<String, dynamic> newData) async {
+    await _firestore.collection(uid).doc(_collection).set(newData, SetOptions(merge: true));
   }
 
-  Future<void> updateSaturdayEnabled(String username, bool enabled) async {
-    DocumentReference documentReference = _firestore.collection(username).doc('timetables');
-    await documentReference.update({'enable_sat': enabled});
+  static Future<void> updateDaySubject(String day, int index, String subject) async {
+    Map<String, dynamic> data = await getTimetableData();
+    List<String> dayList = List<String>.from(data[day] ?? List.filled(10, ''));
+    if (index < dayList.length) {
+      dayList[index] = subject;
+    } else {
+      while (dayList.length <= index) {
+        dayList.add('');
+      }
+      dayList[index] = subject;
+    }
+    await _firestore.collection(uid).doc(_collection).update({day: dayList});
   }
 
-  Future<void> updateSundayEnabled(String username, bool enabled) async {
-    DocumentReference documentReference = _firestore.collection(username).doc('timetables');
-    await documentReference.update({'enable_sun': enabled});
+  static Future<void> updateTimes(int newTimes) async {
+    await _firestore.collection(uid).doc(_collection).update({'times': newTimes});
+  }
+
+  static Future<void> updateSaturdayEnabled(bool enabled) async {
+    await _firestore.collection(uid).doc(_collection).update({'enable_sat': enabled});
+  }
+
+  static Future<void> updateSundayEnabled(bool enabled) async {
+    await _firestore.collection(uid).doc(_collection).update({'enable_sun': enabled});
+  }
+
+  static Future<bool> getSaturdayEnabled() async {
+    DocumentSnapshot doc = await _firestore.collection(uid).doc(_collection).get();
+    return (doc.data() as Map<String, dynamic>)['enable_sat'] ?? true;
+  }
+
+  static Future<bool> getSundayEnabled() async {
+    DocumentSnapshot doc = await _firestore.collection(uid).doc(_collection).get();
+    return (doc.data() as Map<String, dynamic>)['enable_sun'] ?? true;
   }
 }

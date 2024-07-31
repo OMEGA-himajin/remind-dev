@@ -8,10 +8,6 @@ import 'screens/timetable.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'dart:io';
-import '../model/firestore_timetables.dart';
-import '../model/firestore_subjects.dart';
 
 String uid = 'UID';
 void main() async {
@@ -33,8 +29,6 @@ void main() async {
   FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
   runApp(MyApp(initialThemeMode: themeMode));
 }
-
-class _getDeviceId {}
 
 class MyApp extends StatefulWidget {
   final ThemeMode initialThemeMode;
@@ -67,6 +61,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'タイトル',
       theme: ThemeData(
+        fontFamily: 'NotoSansJP',
         brightness: Brightness.light,
         primarySwatch: Colors.blue,
         colorScheme: ColorScheme.light(
@@ -79,6 +74,7 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       darkTheme: ThemeData(
+        fontFamily: 'NotoSansJP',
         brightness: Brightness.dark,
         primarySwatch: Colors.blue,
         colorScheme: ColorScheme.dark(
@@ -109,7 +105,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   static final List<Widget> _screens = [
     const HomeScreen(),
     const TimeTableScreen(),
-    //ItemsScreen(),
+    //const ItemsScreen(),
     const schedule.ScheduleScreen()
   ];
 
@@ -123,7 +119,6 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
 
   void _showAddSubjectDialog(BuildContext context) async {
     TextEditingController textEditingController = TextEditingController();
-    SubjectsRepository _subjectsRepository = SubjectsRepository();
 
     await showDialog<String>(
       context: context,
@@ -139,7 +134,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                   children: [
                     Expanded(
                       child: FutureBuilder<List<String>>(
-                        future: _subjectsRepository.getAllSubjects(uid),
+                        future: _getSubjects(),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
                             return CircularProgressIndicator();
@@ -158,8 +153,8 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                                 trailing: IconButton(
                                   icon: Icon(Icons.delete),
                                   onPressed: () async {
-                                    await _subjectsRepository.deleteSubject(
-                                        uid, subjects[index]);
+                                    await DataManager()
+                                        .deleteSubject(subjects[index]);
                                     setDialogState(() {});
                                   },
                                 ),
@@ -189,8 +184,9 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                   child: const Text('追加'),
                   onPressed: () async {
                     String subjectName = textEditingController.text.trim();
-                    if (subjectName.isNotEmpty) {
-                      await _subjectsRepository.addSubject(uid, subjectName);
+                    if (subjectName.isNotEmpty &&
+                        !await DataManager().subjectExists(subjectName)) {
+                      await DataManager().addSubject(subjectName);
                       setDialogState(() {});
                       textEditingController.clear();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -198,7 +194,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('教科名が空白です。')),
+                        SnackBar(content: Text('すでに同じ名前の教科が存在するか空白です。')),
                       );
                     }
                   },
@@ -299,15 +295,6 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               Navigator.pop(context);
             },
           ),
-          // ここに新しいListTileを追加
-          ListTile(
-            leading: Icon(Icons.add),
-            title: Text('教科の追加'),
-            onTap: () {
-              Navigator.pop(context);
-              _showAddSubjectDialog(context);
-            },
-          ),
           ListTile(
             leading: Icon(Icons.library_books),
             title: Text('持ち物'),
@@ -356,11 +343,6 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               ],
             ),
           ),
-          if (_selectedIndex == 1) ...[
-            Divider(),
-            (_screens[1] as TimeTableScreen)
-                .buildTimetableSpecificMenuItems(context),
-          ],
         ],
       ),
     );
@@ -575,18 +557,5 @@ class DataManager {
     return date1.year == date2.year &&
         date1.month == date2.month &&
         date2.day == date2.day;
-  }
-
-  Future<String> _getDeviceId() async {
-    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-    if (Platform.isAndroid) {
-      AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-      return androidInfo.id; // unique ID on Android
-    } else if (Platform.isIOS) {
-      IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-      return iosInfo.identifierForVendor!; // unique ID on iOS
-    } else {
-      throw UnsupportedError('Unsupported platform');
-    }
   }
 }
