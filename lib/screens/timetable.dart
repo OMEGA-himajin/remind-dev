@@ -210,15 +210,28 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: Text('$dayNameの${index + 1}時間目の教科を選択'),
-              content: DropdownButton<String>(
-                value: selectedSubject,
-                onChanged: (String? newValue) {
-                  setState(() {
-                    selectedSubject = newValue;
-                  });
-                },
-                items: _buildDropdownMenuItems(),
-                isExpanded: true,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButton<String>(
+                    value: selectedSubject,
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        selectedSubject = newValue;
+                      });
+                    },
+                    items: _buildDropdownMenuItems(),
+                    isExpanded: true,
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showAddSubjectDialog(context);
+                    },
+                    child: Text('教科を追加+'),
+                  ),
+                ],
               ),
               actions: <Widget>[
                 TextButton(
@@ -264,59 +277,72 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   }
 
   Widget buildTimetableSpecificMenuItems(BuildContext context) {
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        ListTile(
-          title: Text("教科の追加"),
-          trailing: Icon(Icons.add),
-          onTap: () {
-            _showAddSubjectDialog(context);
-          },
-        ),
-        ListTile(
-          title: Text("時間数の変更"),
-          trailing: DropdownButton<int>(
-            value: times,
-            onChanged: (int? newValue) async {
-              if (newValue != null) {
-                await DataManager().updateTimes(newValue);
-                await _loadData();
-                setState(() {
-                  times = newValue;
-                });
-              }
-            },
-            items: List.generate(
-              10,
-              (index) => DropdownMenuItem<int>(
-                value: index + 1,
-                child: Text('${index + 1}時間'),
+        PopupMenuButton(
+          itemBuilder: (BuildContext context) {
+            return [
+              PopupMenuItem(
+                child: ListTile(
+                  title: Text("教科の追加"),
+                  trailing: Icon(Icons.add),
+                  onTap: () {
+                    _showAddSubjectDialog(context);
+                  },
+                ),
               ),
-            ),
-          ),
-        ),
-        StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Column(
-              children: [
-                SwitchListTile(
-                  title: Text('土曜日を表示する'),
-                  value: DataManager().getSaturdayEnabled(),
-                  onChanged: (bool value) {
-                    DataManager().updateSaturdayEnabled(value);
-                    setState(() {});
+              PopupMenuItem(
+                child: ListTile(
+                  title: Text("時間数の変更"),
+                  trailing: DropdownButton<int>(
+                    value: times,
+                    onChanged: (int? newValue) async {
+                      if (newValue != null) {
+                        await DataManager().updateTimes(newValue);
+                        await _loadData();
+                        setState(() {
+                          times = newValue;
+                        });
+                      }
+                    },
+                    items: List.generate(
+                      10,
+                      (index) => DropdownMenuItem<int>(
+                        value: index + 1,
+                        child: Text('${index + 1}時間'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              PopupMenuItem(
+                child: StatefulBuilder(
+                  builder: (BuildContext context, StateSetter setState) {
+                    return Column(
+                      children: [
+                        SwitchListTile(
+                          title: Text('土曜日を表示する'),
+                          value: DataManager().getSaturdayEnabled(),
+                          onChanged: (bool value) {
+                            DataManager().updateSaturdayEnabled(value);
+                            setState(() {});
+                          },
+                        ),
+                        SwitchListTile(
+                          title: Text('日曜日を表示する'),
+                          value: DataManager().getSundayEnabled(),
+                          onChanged: (bool value) {
+                            DataManager().updateSundayEnabled(value);
+                            setState(() {});
+                          },
+                        ),
+                      ],
+                    );
                   },
                 ),
-                SwitchListTile(
-                  title: Text('日曜日を表示する'),
-                  value: DataManager().getSundayEnabled(),
-                  onChanged: (bool value) {
-                    DataManager().updateSundayEnabled(value);
-                    setState(() {});
-                  },
-                ),
-              ],
-            );
+              ),
+            ];
           },
         ),
       ],
@@ -346,6 +372,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                             return CircularProgressIndicator();
                           }
                           List<String> subjects = snapshot.data!;
+                          print(subjects); // Print the subjects list
                           return ListView.builder(
                             itemCount: subjects.length,
                             itemBuilder: (context, index) {

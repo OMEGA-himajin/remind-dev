@@ -212,6 +212,11 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
+        actions: [
+          if (_selectedIndex == 1)
+            (_screens[1] as TimeTableScreen)
+                .buildTimetableSpecificMenuItems(context),
+        ],
       ),
       drawer: _buildCommonDrawer(context),
       body: _screens[_selectedIndex],
@@ -334,11 +339,6 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               ],
             ),
           ),
-          if (_selectedIndex == 1) ...[
-            Divider(),
-            (_screens[1] as TimeTableScreen)
-                .buildTimetableSpecificMenuItems(context),
-          ],
         ],
       ),
     );
