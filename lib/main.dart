@@ -103,7 +103,8 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   static final List<Widget> _screens = [
     const HomeScreen(),
     const TimeTableScreen(),
-    const schedule.ScheduleScreen()
+    const schedule.ScheduleScreen(),
+    // 持ち物画面はここに追加する必要があります
   ];
 
   int _selectedIndex = 0;
@@ -129,9 +130,9 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
           BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'ホーム'),
           BottomNavigationBarItem(icon: Icon(Icons.table_view), label: '時間割'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.library_books), label: '持ち物'),
-          BottomNavigationBarItem(
               icon: Icon(Icons.calendar_month), label: 'スケジュール'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.library_books), label: '持ち物'),
         ],
         type: BottomNavigationBarType.fixed,
       ),
@@ -145,9 +146,9 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
       case 1:
         return '時間割';
       case 2:
-        return '持ち物';
-      case 3:
         return 'スケジュール';
+      case 3:
+        return '持ち物';
       default:
         return '';
     }
@@ -194,16 +195,16 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.library_books),
-            title: Text('持ち物'),
+            leading: Icon(Icons.calendar_month),
+            title: Text('スケジュール'),
             onTap: () {
               _onItemTapped(2);
               Navigator.pop(context);
             },
           ),
           ListTile(
-            leading: Icon(Icons.calendar_month),
-            title: Text('スケジュール'),
+            leading: Icon(Icons.library_books),
+            title: Text('持ち物'),
             onTap: () {
               _onItemTapped(3);
               Navigator.pop(context);
