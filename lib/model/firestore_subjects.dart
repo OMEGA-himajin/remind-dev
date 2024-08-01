@@ -6,20 +6,32 @@ class FirestoreSubjects {
   static final String _collection = 'subjects';
 
   static Future<List<String>> getSubjects() async {
-    QuerySnapshot querySnapshot = await _firestore.collection(uid).doc(_collection).collection('items').get();
-    return querySnapshot.docs.map((doc) => doc.id).toList();
+    DocumentSnapshot docSnapshot = await _firestore.collection(uid).doc(_collection).get();
+    if (docSnapshot.exists) {
+      Map<String, dynamic> data = docSnapshot.data() as Map<String, dynamic>;
+      return List<String>.from(data.keys);
+    }
+    return [];
   }
 
   static Future<void> addSubject(String subject) async {
-    await _firestore.collection(uid).doc(_collection).collection('items').doc(subject).set({});
+    await _firestore.collection(uid).doc(_collection).set({
+      subject: {}
+    }, SetOptions(merge: true));
   }
 
   static Future<void> deleteSubject(String subject) async {
-    await _firestore.collection(uid).doc(_collection).collection('items').doc(subject).delete();
+    await _firestore.collection(uid).doc(_collection).update({
+      subject: FieldValue.delete()
+    });
   }
 
   static Future<bool> subjectExists(String subject) async {
-    DocumentSnapshot doc = await _firestore.collection(uid).doc(_collection).collection('items').doc(subject).get();
-    return doc.exists;
+    DocumentSnapshot docSnapshot = await _firestore.collection(uid).doc(_collection).get();
+    if (docSnapshot.exists) {
+      Map<String, dynamic> data = docSnapshot.data() as Map<String, dynamic>;
+      return data.containsKey(subject);
+    }
+    return false;
   }
 }

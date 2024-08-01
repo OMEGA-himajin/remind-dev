@@ -44,8 +44,10 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   }
 
   Future<void> _loadData() async {
+    await FirestoreTimetables.initializeTimetableData(); // 初期データを作成
     Map<String, dynamic> timetableData =
         await FirestoreTimetables.getTimetableData();
+    List<String> subjectList = await FirestoreSubjects.getSubjects();
     setState(() {
       data = timetableData;
       times = data['times'] ?? 6;
@@ -58,9 +60,8 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       fri = List<String>.from(data['fri'] ?? List.filled(10, ''));
       sat = List<String>.from(data['sat'] ?? List.filled(10, ''));
       sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
-      subjects = List<String>.from(data['sub'] ?? []);
       subjects =
-          subjects.where((subject) => subject.trim().isNotEmpty).toList();
+          subjectList.where((subject) => subject.trim().isNotEmpty).toList();
     });
   }
 
@@ -160,32 +161,38 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                     ),
                   ),
                   PopupMenuItem(
-                    child: ListTile(
-                      title: Text("時間数の変更"),
-                      trailing: DropdownButton<int>(
-                        value: times,
-                        onChanged: (int? newValue) async {
-                          if (newValue != null) {
-                            await FirestoreTimetables.updateTimes(newValue);
-                            await _loadData();
-                            setState(() {
-                              times = newValue;
-                            });
-                          }
-                        },
-                        items: List.generate(
-                          10,
-                          (index) => DropdownMenuItem<int>(
-                            value: index + 1,
-                            child: Text('${index + 1}時間'),
+                    child: StatefulBuilder(
+                      builder: (BuildContext context,
+                          StateSetter setStateForBuilder) {
+                        return ListTile(
+                          title: Text("時間数の変更"),
+                          trailing: DropdownButton<int>(
+                            value: times,
+                            onChanged: (int? newValue) async {
+                              if (newValue != null) {
+                                await FirestoreTimetables.updateTimes(newValue);
+                                setState(() {
+                                  times = newValue;
+                                });
+                                setStateForBuilder(() {});
+                              }
+                            },
+                            items: List.generate(
+                              10,
+                              (index) => DropdownMenuItem<int>(
+                                value: index + 1,
+                                child: Text('${index + 1}時間'),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                   PopupMenuItem(
                     child: StatefulBuilder(
-                      builder: (BuildContext context, StateSetter setState) {
+                      builder: (BuildContext context,
+                          StateSetter setStateForBuilder) {
                         return Column(
                           children: [
                             SwitchListTile(
@@ -197,6 +204,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                                 setState(() {
                                   _saturday = value;
                                 });
+                                setStateForBuilder(() {});
                               },
                             ),
                             SwitchListTile(
@@ -208,6 +216,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                                 setState(() {
                                   _sunday = value;
                                 });
+                                setStateForBuilder(() {});
                               },
                             ),
                           ],
@@ -285,7 +294,8 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       selectedSubject = currentDayList[index];
     }
     await _loadData();
-    await showDialog<String>(
+
+    final String? result = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
@@ -333,12 +343,12 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
           },
         );
       },
-    ).then((value) async {
-      if (value != null) {
-        await FirestoreTimetables.updateDaySubject(day, index, value);
-        await _loadData();
-      }
-    });
+    );
+    if (result != null) {
+      await FirestoreTimetables.updateDaySubject(day, index, result);
+      await _loadData(); // データを再読み込み
+      setState(() {}); // UIを更新
+    }
   }
 
   List<DropdownMenuItem<String>> _buildDropdownMenuItems() {
@@ -465,9 +475,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                               if (subjects[index].trim().isEmpty)
                                 return Container();
                               return ListTile(
-                                title: Text(
-                                  subjects[index],
-                                ),
+                                title: Text(subjects[index]),
                                 trailing: IconButton(
                                   icon: Icon(Icons.delete),
                                   onPressed: () async {

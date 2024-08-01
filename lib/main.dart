@@ -4,12 +4,12 @@ import 'dart:convert';
 import 'screens/home.dart';
 //import 'screens/items.dart';
 import 'screens/schedule.dart' as schedule;
-import 'screens/timetable.dart';
+import 'screens/timetable.dart';  
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
-String uid = 'UID';
+String uid = 'uid';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SharedPreferences prefs = await SharedPreferences.getInstance();
