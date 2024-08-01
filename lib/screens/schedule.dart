@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
-import '../main.dart';
 import 'dart:math' show max;
+import '../model/firestore_schedules.dart';
+import '../model/firestore_subjects.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -13,27 +14,44 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
-  final _dataManager = DataManager();
   late DateTime _selectedStartDay;
   late DateTime _selectedEndDay;
   late DateTime _focusedDay;
+  late DateTime _selectedDay;
   bool _isLoading = true;
   List<String> subjects = [];
   bool _isAddingEvent = false;
+  List<Map<String, dynamic>> allEvents = [];
+  DateTime lastUpdateTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _selectedStartDay = _selectedEndDay = _focusedDay = DateTime.now();
+    _selectedDay = _focusedDay = DateTime.now();
     _loadData();
+
+    // 定期的な更新を設定
+    //Timer.periodic(Duration(minutes: 5), (Timer t) => _updateDataIfNeeded());
   }
 
   Future<void> _loadData() async {
-    await _dataManager.loadData();
+    subjects = await FirestoreSubjects.getSubjects();
+    allEvents = await FirestoreSchedules.getEvents();
+    lastUpdateTime = DateTime.now();
     setState(() {
-      subjects = List<String>.from(_dataManager.getData()['sub'] ?? []);
       _isLoading = false;
     });
+  }
+
+  Future<void> _updateDataIfNeeded() async {
+    if (DateTime.now().difference(lastUpdateTime) > Duration(minutes: 5)) {
+      List<Map<String, dynamic>> newEvents =
+          await FirestoreSchedules.getEvents();
+      setState(() {
+        allEvents = newEvents;
+        lastUpdateTime = DateTime.now();
+      });
+    }
   }
 
   @override
@@ -56,7 +74,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             child: LayoutBuilder(
                               builder: (context, constraints) {
                                 final rowHeight =
-                                    (constraints.maxHeight - 80) / 7; // Adjusted the row height to fit 7 rows
+                                    (constraints.maxHeight - 80) / 7;
                                 return TableCalendar(
                                   firstDay: DateTime.utc(2010, 1, 1),
                                   lastDay: DateTime.utc(2100, 1, 1),
@@ -113,12 +131,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   void _onDaySelected(selectedDay, focusedDay) {
     setState(() {
-      if (selectedDay.isBefore(_selectedStartDay) ||
-          _selectedStartDay == _selectedEndDay) {
-        _selectedStartDay = _selectedEndDay = selectedDay;
-      } else if (selectedDay.isAfter(_selectedStartDay)) {
-        _selectedEndDay = selectedDay;
-      }
+      _selectedDay = selectedDay;
       _focusedDay = focusedDay;
       _isAddingEvent = true;
     });
@@ -189,10 +202,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        _selectedStartDay == _selectedEndDay
-                            ? DateFormat('yyyy年MM月dd日の予定')
-                                .format(_selectedStartDay)
-                            : '${DateFormat('yyyy年MM月dd日').format(_selectedStartDay)} 〜 ${DateFormat('yyyy年MM月dd日').format(_selectedEndDay)}の予定',
+                        DateFormat('yyyy年MM月dd日の予定').format(_selectedDay),
                         style: theme.textTheme.titleLarge
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
@@ -226,8 +236,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Widget _buildEventList() {
     final theme = Theme.of(context);
-    final events =
-        _dataManager.getEventsForPeriod(_selectedStartDay, _selectedEndDay);
+    final events = _getEventsForDay(_selectedDay);
 
     if (events.isEmpty) {
       return Padding(
@@ -276,8 +285,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 ? Colors.white
                 : Colors.black;
 
-    final events = _dataManager.getEventsForDay(day);
-
     return Container(
       height: cellHeight,
       decoration: BoxDecoration(
@@ -310,7 +317,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           ),
           Expanded(
             child: Stack(
-              children: _buildEventIndicators(day, events),
+              children: _buildEventIndicators(day, _getEventsForDay(day)),
             ),
           ),
         ],
@@ -386,21 +393,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   bool _shouldShowLabel(DateTime day, DateTime startDate, DateTime endDate) {
-    // 開始日の場合は true
     if (isSameDay(day, startDate)) return true;
-
-    // 終了日の場合は true
     if (isSameDay(day, endDate)) return true;
 
-    // 開始日の次の週の月曜日を計算
     DateTime startOfNextWeek =
         startDate.add(Duration(days: 7 - startDate.weekday + 1));
-
-    // 終了日の前の週の日曜日を計算
     DateTime endOfPreviousWeek =
         endDate.subtract(Duration(days: endDate.weekday));
 
-    // 開始日の次の週から終了日の前の週までの間にある水曜日の場合は true
     if (day.isAfter(startOfNextWeek) &&
         day.isBefore(endOfPreviousWeek) &&
         day.weekday == DateTime.wednesday) {
@@ -422,43 +422,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     return endDate.difference(startDate);
   }
 
-  Widget _buildEventIndicator(DateTime day, Map<String, dynamic> event) {
-    final startDate = DateTime.parse(event['startDateTime']);
-    final endDate = DateTime.parse(event['endDateTime']);
-    final isStart = isSameDay(day, startDate);
-    final isEnd = isSameDay(day, endDate);
-    //final isContinuation = day.isAfter(startDate) && day.isBefore(endDate);
-
-    const double gapSize = 2.0;
-
-    return Positioned(
-      top: 0,
-      left: isStart ? gapSize : 0,
-      right: isEnd ? gapSize : 0,
-      child: Container(
-        height: 20,
-        decoration: BoxDecoration(
-          color: Color(event['color']),
-          borderRadius: BorderRadius.horizontal(
-            left: isStart ? Radius.circular(4) : Radius.zero,
-            right: isEnd ? Radius.circular(4) : Radius.zero,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            isStart || isEnd ? event['event'] : '',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showAddEventDialog() {
     final _eventController = TextEditingController();
     final _contentController = TextEditingController();
@@ -468,7 +431,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final _endDateTimeController = TextEditingController();
     var selectedType = 'event';
     var selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
-    Color selectedColor = Colors.blue; // Changed from MaterialColor to Color
+    Color selectedColor = Colors.blue;
     var startDateTime = _selectedStartDay;
     var endDateTime = _selectedEndDay;
     var isAllDay = false;
@@ -749,7 +712,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 child: Text('追加',
                     style: theme.textTheme.labelLarge
                         ?.copyWith(color: theme.colorScheme.primary)),
-                onPressed: () {
+                onPressed: () async {
                   if (_eventController.text.isEmpty ||
                       (selectedType == 'event' &&
                           (isAllDay
@@ -767,7 +730,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     );
                     return;
                   }
-                  _addEvent(
+                  await _addEvent(
                     _eventController.text,
                     selectedSubject,
                     selectedType,
@@ -778,6 +741,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     isAllDay,
                   );
                   Navigator.pop(context);
+                  setState(() {});
                 },
               ),
             ],
@@ -787,7 +751,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  void _addEvent(
+  Future<void> _addEvent(
     String newEvent,
     String subject,
     String eventType,
@@ -796,7 +760,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     DateTime endDateTime,
     Color color,
     bool isAllDay,
-  ) {
+  ) async {
     if (isAllDay) {
       startDateTime =
           DateTime(startDateTime.year, startDateTime.month, startDateTime.day);
@@ -835,8 +799,30 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       'multiday': !isSameDay(startDateTime, endDateTime),
     };
 
-    _dataManager.addEvent(event);
+    await FirestoreSchedules.addEvent(event);
+    setState(() {
+      allEvents.add(event);
+    });
+  }
 
-    setState(() {});
+  List<Map<String, dynamic>> _getEventsForPeriod(DateTime start, DateTime end) {
+    return allEvents.where((event) {
+      final eventStart = DateTime.parse(event['startDateTime']);
+      final eventEnd = DateTime.parse(event['endDateTime']);
+      return (eventStart.isAfter(start) ||
+              eventStart.isAtSameMomentAs(start)) &&
+          (eventEnd.isBefore(end) || eventEnd.isAtSameMomentAs(end));
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
+    return allEvents.where((event) {
+      final startDate = DateTime.parse(event['startDateTime']);
+      final endDate = DateTime.parse(event['endDateTime']);
+      return day.isAtSameMomentAs(startDate) ||
+          day.isAtSameMomentAs(endDate) ||
+          (day.isAfter(startDate) &&
+              day.isBefore(endDate.add(Duration(days: 1))));
+    }).toList();
   }
 }
