@@ -28,6 +28,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   void initState() {
     super.initState();
     _selectedDay = _focusedDay = DateTime.now();
+    _selectedStartDay = _selectedDay;
+    _selectedEndDay = _selectedDay;
     _loadData();
 
     // 定期的な更新を設定
@@ -133,7 +135,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     setState(() {
       _selectedDay = selectedDay;
       _focusedDay = focusedDay;
+      _selectedStartDay = selectedDay;
+      _selectedEndDay = selectedDay;
       _isAddingEvent = true;
+      print('_isAddingEvent: $_isAddingEvent');
     });
   }
 
@@ -442,6 +447,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
     _endDateTimeController.text =
         DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
+    if (_selectedStartDay == null || _selectedEndDay == null) {
+      _selectedStartDay = _selectedDay;
+      _selectedEndDay = _selectedDay;
+    }
 
     showDialog(
       context: context,
