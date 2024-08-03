@@ -7,7 +7,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
-String uid = 'uid';
+String uid = '';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SharedPreferences prefs = await SharedPreferences.getInstance();

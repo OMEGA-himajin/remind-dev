@@ -138,7 +138,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       _selectedStartDay = selectedDay;
       _selectedEndDay = selectedDay;
       _isAddingEvent = true;
-      print('_isAddingEvent: $_isAddingEvent');
     });
   }
 
