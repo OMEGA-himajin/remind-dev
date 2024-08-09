@@ -295,6 +295,11 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     }
     await _loadData();
 
+    // 選択された科目が科目リストに存在しない場合、'(なし)' を選択
+    if (!subjects.contains(selectedSubject)) {
+      selectedSubject = '';
+    }
+
     final String? result = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
