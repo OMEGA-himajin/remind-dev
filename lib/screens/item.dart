@@ -19,6 +19,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   late List<String> _filteredItems;
   late TextEditingController _searchController;
   List<BluetoothDevice> _devicesList = [];
+  bool isConnected = false;
 
   @override
   void initState() {
@@ -94,6 +95,9 @@ class _ItemsScreenState extends State<ItemsScreen> {
                     trailing: ElevatedButton(
                       onPressed: () async {
                         await _devicesList[index].connect();
+                        setState(() {
+                          isConnected = true;
+                        });
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                               content:
@@ -121,6 +125,35 @@ class _ItemsScreenState extends State<ItemsScreen> {
     }
   }
 
+  void _showDeleteDialog(String item) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('削除確認'),
+          content: Text('$item を削除しますか？'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('キャンセル'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _filteredItems.remove(item);
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('削除'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -145,7 +178,10 @@ class _ItemsScreenState extends State<ItemsScreen> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.bluetooth),
+              icon: Icon(
+                Icons.bluetooth,
+                color: isConnected ? Colors.green : Colors.grey,
+              ),
               onPressed: _showBluetoothPopup,
             ),
           ],
@@ -156,8 +192,26 @@ class _ItemsScreenState extends State<ItemsScreen> {
         itemBuilder: (context, index) {
           return ListTile(
             title: Text(_filteredItems[index]),
-            leading: const Icon(Icons.check),
-            trailing: const Icon(Icons.arrow_forward),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.edit,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    // 編集アイコンがタップされたときの処理
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.grey),
+                  onPressed: () {
+                    _showDeleteDialog(_filteredItems[index]);
+                  },
+                ),
+              ],
+            ),
             onTap: () {
               // アイテムがタップされたときの処理
               ScaffoldMessenger.of(context).showSnackBar(
