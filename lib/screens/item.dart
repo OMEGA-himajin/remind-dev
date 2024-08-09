@@ -98,6 +98,31 @@ class _ItemsScreenState extends State<ItemsScreen> {
                         setState(() {
                           isConnected = true;
                         });
+                        // サービスとキャラクタリスティックのUUIDを指定
+                        final serviceUuid =
+                            Guid('5ccc9918-c8a9-4f09-8c88-671375b3cf75');
+                        final characteristicUuid =
+                            Guid('c6f6bb69-2b85-47fb-993b-584440b6a785');
+
+                        // サービスを取得
+                        List<BluetoothService> services =
+                            await _devicesList[index].discoverServices();
+                        for (BluetoothService service in services) {
+                          if (service.uuid == serviceUuid) {
+                            for (BluetoothCharacteristic characteristic
+                                in service.characteristics) {
+                              if (characteristic.uuid == characteristicUuid) {
+                                // 通知をオンにする
+                                await characteristic.setNotifyValue(true);
+                                characteristic.value.listen((value) {
+                                  // 通知を受け取ったときの処理
+                                  print('Received data: $value');
+                                });
+                              }
+                            }
+                          }
+                        }
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                               content:
