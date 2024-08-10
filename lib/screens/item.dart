@@ -20,6 +20,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
   late TextEditingController _searchController;
   List<BluetoothDevice> _devicesList = [];
   bool isConnected = false;
+  Set<int> selected = {0};
+  Map<String, Set<int>> itemSelections = {};
 
   @override
   void initState() {
@@ -27,6 +29,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
     _filteredItems = _items;
     _searchController = TextEditingController();
     _searchController.addListener(_filterItems);
+    Map<String, Set<int>> itemSelections = {};
+    // 初期状態でのアイテムの選択状態を設定
+    for (var item in _items) {
+      itemSelections[item] = {0};
+    }
   }
 
   void _filterItems() {
@@ -179,6 +186,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
     );
   }
 
+  void _onSelectionChanged(String item, Set<int> set) {
+    setState(() {
+      itemSelections[item] = set;
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -215,11 +228,27 @@ class _ItemsScreenState extends State<ItemsScreen> {
       body: ListView.builder(
         itemCount: _filteredItems.length,
         itemBuilder: (context, index) {
+          final item = _filteredItems[index]; // ここで item を定義
           return ListTile(
-            title: Text(_filteredItems[index]),
+            title: Text(item),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  onSelectionChanged: (Set<int> set) =>
+                      _onSelectionChanged(item, set),
+                  segments: [
+                    ButtonSegment(
+                        value: 0,
+                        label: Icon(Icons.backpack, color: Colors.grey[700])),
+                    ButtonSegment(
+                        value: 1,
+                        label:
+                            Icon(Icons.no_backpack, color: Colors.grey[700])),
+                  ],
+                  selected: itemSelections[item] ?? {0},
+                ),
                 IconButton(
                   icon: const Icon(
                     Icons.edit,
@@ -229,18 +258,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
                     // 編集アイコンがタップされたときの処理
                   },
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.grey),
-                  onPressed: () {
-                    _showDeleteDialog(_filteredItems[index]);
-                  },
-                ),
               ],
             ),
             onTap: () {
               // アイテムがタップされたときの処理
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${_filteredItems[index]} tapped')),
+                SnackBar(content: Text('$item tapped')),
               );
             },
           );
