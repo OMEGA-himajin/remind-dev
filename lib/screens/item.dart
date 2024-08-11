@@ -255,7 +255,36 @@ class _ItemsScreenState extends State<ItemsScreen> {
                     color: Colors.grey,
                   ),
                   onPressed: () {
-                    // 編集アイコンがタップされたときの処理
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text(item),
+                          content: TextField(
+                            controller: TextEditingController(text: item),
+                            onChanged: (value) {
+                              setState(() {
+                                _filteredItems[index] = value;
+                              });
+                            },
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('キャンセル'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('保存'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
                 ),
               ],
