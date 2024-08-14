@@ -259,14 +259,35 @@ class _ItemsScreenState extends State<ItemsScreen> {
                       context: context,
                       builder: (BuildContext context) {
                         return AlertDialog(
-                          title: Text(item),
-                          content: TextField(
-                            controller: TextEditingController(text: item),
-                            onChanged: (value) {
-                              setState(() {
-                                _filteredItems[index] = value;
-                              });
-                            },
+                          title: const Text('編集'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                controller: TextEditingController(text: item),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _filteredItems[index] = value;
+                                  });
+                                },
+                              ),
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text('アイテム名'),
+                              ),
+                              TextField(
+                                controller: TextEditingController(text: item),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _filteredItems[index] = value;
+                                  });
+                                },
+                              ),
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text('タグID'),
+                              ),
+                            ],
                           ),
                           actions: [
                             TextButton(
