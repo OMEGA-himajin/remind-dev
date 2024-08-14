@@ -177,6 +177,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   _filteredItems.remove(item);
                 });
                 Navigator.of(context).pop();
+                Navigator.of(context).pop();
               },
               child: const Text('削除'),
             ),
@@ -287,6 +288,18 @@ class _ItemsScreenState extends State<ItemsScreen> {
                                 alignment: Alignment.centerLeft,
                                 child: Text('タグID'),
                               ),
+                              SizedBox(
+                                width: 200,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    _showDeleteDialog(item);
+                                  },
+                                  child: const Text(
+                                    '削除',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              )
                             ],
                           ),
                           actions: [
