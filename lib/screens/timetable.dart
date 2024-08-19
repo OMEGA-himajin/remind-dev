@@ -579,12 +579,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: MediaQuery.of(context).viewInsets.bottom > 0
-            ? 10.0 // キーボードが表示されている場合は上部に表示
-            : null,
-        bottom: MediaQuery.of(context).viewInsets.bottom > 0
-            ? null
-            : 10.0, // キーボードが表示されていない場合は下部に表示
+        top: 10.0, // 常に上部に表示
         left: 10.0,
         right: 10.0,
         child: SafeArea(
