@@ -31,19 +31,22 @@ class Item {
 class ItemRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// `uid`と`tagId`に基づいてアイテムを取得するメソッド。
-  Future<Item?> getItemByTagId(String uid, String tagId) async {
+  /// `uid`に基づいてすべてのアイテムを取得するメソッド。
+  Future<List<Item>> getAllItems(String uid) async {
     DocumentSnapshot documentSnapshot =
         await _firestore.collection(uid).doc('items').get();
+
+    List<Item> items = [];
 
     if (documentSnapshot.exists) {
       Map<String, dynamic> data =
           documentSnapshot.data() as Map<String, dynamic>;
-      if (data.containsKey(tagId)) {
-        return Item.fromMap(tagId, data[tagId]);
-      }
+      data.forEach((tagId, itemData) {
+        items.add(Item.fromMap(tagId, itemData as Map<String, dynamic>));
+      });
     }
-    return null;
+
+    return items;
   }
 
   /// `uid`と`tagId`に基づいてアイテムの`inBag`ステータスを更新するメソッド。
