@@ -570,7 +570,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
 
   void _showFloatingMessage(
       BuildContext context, String message, bool isSuccess) {
-    if (_isMessageDisplayed) return; // 既にメッセージが表示されている場合は早期リターン
+    if (_isMessageDisplayed) return;
 
     setState(() {
       _isMessageDisplayed = true;
@@ -579,9 +579,14 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        bottom: 0.0,
-        left: 0.0,
-        right: 0.0,
+        top: MediaQuery.of(context).viewInsets.bottom > 0
+            ? 10.0 // キーボードが表示されている場合は上部に表示
+            : null,
+        bottom: MediaQuery.of(context).viewInsets.bottom > 0
+            ? null
+            : 10.0, // キーボードが表示されていない場合は下部に表示
+        left: 10.0,
+        right: 10.0,
         child: SafeArea(
           child: Material(
             color: Colors.transparent,
@@ -590,10 +595,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
               decoration: BoxDecoration(
                 color:
                     isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(8.0),
-                  topRight: Radius.circular(8.0),
-                ),
+                borderRadius: BorderRadius.circular(8.0),
               ),
               child: Text(
                 message,
