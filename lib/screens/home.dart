@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_button/sign_in_button.dart';
 import '../main.dart' as main;
 
 class HomeScreen extends StatefulWidget {
@@ -135,9 +136,9 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: _resetPassword,
           child: const Text('パスワードを忘れた場合'),
         ),
-        ElevatedButton(
+        SignInButton(
+          Buttons.google,
           onPressed: _signInWithGoogle,
-          child: const Text('Googleでログイン'),
         ),
       ],
     );
