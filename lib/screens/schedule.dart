@@ -773,9 +773,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        bottom: 0.0,
-        left: 0.0,
-        right: 0.0,
+        top: 10.0, // 常に上部に表示
+        left: 10.0,
+        right: 10.0,
         child: SafeArea(
           child: Material(
             color: Colors.transparent,
@@ -784,10 +784,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               decoration: BoxDecoration(
                 color:
                     isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(8.0),
-                  topRight: Radius.circular(8.0),
-                ),
+                borderRadius: BorderRadius.circular(8.0),
               ),
               child: Text(
                 message,
