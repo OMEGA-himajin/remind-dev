@@ -211,7 +211,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       _buildEventList(),
                       SizedBox(height: 16.0),
                       ElevatedButton(
-                        onPressed: _showAddEventDialog,
+                        onPressed: () => _showAddEventDialog(),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: theme.colorScheme.secondary,
                           foregroundColor: theme.colorScheme.onSecondary,
@@ -236,43 +236,93 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  Widget _buildEventList() {
-    final theme = Theme.of(context);
-    final events = _getEventsForDay(_selectedDay);
+ Widget _buildEventList() {
+  final theme = Theme.of(context);
+  final events = _getEventsForDay(_selectedDay);
 
-    if (events.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Text('予定はありません', style: theme.textTheme.bodyMedium),
-      );
-    }
+  if (events.isEmpty) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Text('予定はありません', style: theme.textTheme.bodyMedium),
+    );
+  }
 
-    return Expanded(
-      child: ListView.builder(
-        itemCount: events.length,
-        itemBuilder: (context, index) {
-          final event = events[index];
-          return Card(
-            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            color: theme.cardColor,
-            child: ListTile(
-              title: Text(
-                event['type'] == 'task' ? event['task']! : event['event']!,
-                style: theme.textTheme.titleMedium,
-              ),
-              subtitle: event['type'] == 'task'
-                  ? Text('教科: ${event['subject']!}',
-                      style: theme.textTheme.bodySmall)
-                  : Text(
-                      event['isAllDay'] == true
-                          ? '終日'
-                          : '${event['startTime']} 〜 ${event['endTime']}',
-                      style: theme.textTheme.bodySmall,
-                    ),
+  return Expanded(
+    child: ListView.builder(
+      itemCount: events.length,
+      itemBuilder: (context, index) {
+        final event = events[index];
+        return Card(
+          margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          color: theme.cardColor,
+          child: ListTile(
+            title: Text(
+              event['type'] == 'task' ? event['task']! : event['event']!,
+              style: theme.textTheme.titleMedium,
             ),
-          );
-        },
-      ),
+            subtitle: event['type'] == 'task'
+                ? Text('教科: ${event['subject']!}',
+                    style: theme.textTheme.bodySmall)
+                : Text(
+                    event['isAllDay'] == true
+                        ? '終日'
+                        : '${event['startTime']} 〜 ${event['endTime']}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.edit, color: theme.iconTheme.color),
+                  onPressed: () => _showAddEventDialog(existingEvent: event),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete, color: theme.iconTheme.color),
+                  onPressed: () => _showDeleteConfirmationDialog(event),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+
+  void _showDeleteConfirmationDialog(Map<String, dynamic> event) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('削除の確認'),
+          content: Text('このイベントを削除してもよろしいですか？'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // ダイアログを閉じる
+              },
+              child: Text('いいえ'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // ダイアログを閉じる
+
+                // イベントを削除する
+                try {
+                  await FirestoreSchedules.deleteEvent(event['id']);
+                  setState(() {
+                    allEvents.removeWhere((e) => e['id'] == event['id']);
+                  });
+                } catch (e) {
+                  print('削除に失敗しました: $e');
+                }
+              },
+              child: Text('はい'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -424,20 +474,35 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     return endDate.difference(startDate);
   }
 
-  void _showAddEventDialog() {
+  void _showAddEventDialog({Map<String, dynamic>? existingEvent}) {
     final _eventController = TextEditingController();
     final _contentController = TextEditingController();
     final _startDateController = TextEditingController();
     final _endDateController = TextEditingController();
     final _startDateTimeController = TextEditingController();
     final _endDateTimeController = TextEditingController();
-    var selectedType = 'event';
-    var selectedSubject = subjects.isNotEmpty ? subjects[0] : '';
-    Color selectedColor = Colors.blue;
-    var startDateTime = _selectedStartDay;
-    var endDateTime = _selectedEndDay;
-    var isAllDay = false;
+    var selectedType = existingEvent != null ? existingEvent['type'] : 'event';
+    var selectedSubject = existingEvent != null
+        ? existingEvent['subject']
+        : 'なし'; // デフォルトを「なし」に変更
+    Color selectedColor =
+        existingEvent != null ? Color(existingEvent['color']) : Colors.blue;
+    var startDateTime = existingEvent != null
+        ? DateTime.parse(existingEvent['startDateTime'])
+        : _selectedStartDay;
+    var endDateTime = existingEvent != null
+        ? DateTime.parse(existingEvent['endDateTime'])
+        : _selectedEndDay;
+    var isAllDay = existingEvent != null ? existingEvent['isAllDay'] : false;
     var isAdding = false;
+
+    // Initialize controllers with existing event data if editing
+    if (existingEvent != null) {
+      _eventController.text = existingEvent['type'] == 'task'
+          ? existingEvent['task']
+          : existingEvent['event'];
+      _contentController.text = existingEvent['content'] ?? '';
+    }
 
     _startDateController.text = DateFormat('yyyy-MM-dd').format(startDateTime);
     _endDateController.text = DateFormat('yyyy-MM-dd').format(endDateTime);
@@ -445,10 +510,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         DateFormat('yyyy-MM-dd HH:mm').format(startDateTime);
     _endDateTimeController.text =
         DateFormat('yyyy-MM-dd HH:mm').format(endDateTime);
-    if (_selectedStartDay == null || _selectedEndDay == null) {
-      _selectedStartDay = _selectedDay;
-      _selectedEndDay = _selectedDay;
-    }
 
     showDialog(
       context: context,
@@ -456,7 +517,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         builder: (BuildContext context, StateSetter setState) {
           final theme = Theme.of(context);
           return AlertDialog(
-            title: Text('予定を追加', style: theme.textTheme.titleLarge),
+            title: Text(existingEvent != null ? '予定を編集' : '予定を追加',
+                style: theme.textTheme.titleLarge),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -690,7 +752,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           selectedSubject = value!;
                         });
                       },
-                      items: subjects.map((String subject) {
+                      items: ['なし', ...subjects].map((String subject) {
                         return DropdownMenuItem<String>(
                           value: subject,
                           child: Text(subject),
@@ -716,7 +778,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
               TextButton(
-                child: Text('追加',
+                child: Text('保存',
                     style: theme.textTheme.labelLarge
                         ?.copyWith(color: theme.colorScheme.primary)),
                 onPressed: isAdding
@@ -738,7 +800,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         setState(() {
                           isAdding = true;
                         });
-                        await _addEvent(
+                        await _addOrUpdateEvent(
                           _eventController.text,
                           selectedSubject,
                           selectedType,
@@ -747,12 +809,18 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           endDateTime,
                           selectedColor,
                           isAllDay,
+                          existingEvent?['id'],
                         );
                         Navigator.pop(context);
-                        _showFloatingMessage(context, '予定を追加しました', true);
+                        _showFloatingMessage(
+                            context,
+                            existingEvent != null ? '予定を更新しました' : '予定を追加しました',
+                            true);
                         setState(() {
                           isAdding = false;
                         });
+                        // 画面を更新するために setState を呼び出す
+                        setState(() {});
                       },
               ),
             ],
@@ -760,6 +828,70 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _addOrUpdateEvent(
+    String newEvent,
+    String subject,
+    String eventType,
+    String content,
+    DateTime startDateTime,
+    DateTime endDateTime,
+    Color color,
+    bool isAllDay,
+    String? existingEventId,
+  ) async {
+    if (isAllDay) {
+      startDateTime =
+          DateTime(startDateTime.year, startDateTime.month, startDateTime.day);
+      endDateTime =
+          DateTime(endDateTime.year, endDateTime.month, endDateTime.day);
+    } else {
+      startDateTime = DateTime(
+        startDateTime.year,
+        startDateTime.month,
+        startDateTime.day,
+        startDateTime.hour,
+        startDateTime.minute,
+      );
+      endDateTime = DateTime(
+        endDateTime.year,
+        endDateTime.month,
+        endDateTime.day,
+        endDateTime.hour,
+        endDateTime.minute,
+      );
+    }
+
+    final event = {
+      'id': existingEventId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      'type': eventType,
+      'event': newEvent,
+      'task': eventType == 'task' ? newEvent : '',
+      'subject': subject,
+      'content': content,
+      'startDateTime': startDateTime.toIso8601String(),
+      'endDateTime': endDateTime.toIso8601String(),
+      'startTime': isAllDay ? null : DateFormat('HH:mm').format(startDateTime),
+      'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime),
+      'color': color.value,
+      'isAllDay': isAllDay,
+      'multiday': !isSameDay(startDateTime, endDateTime),
+    };
+
+    if (existingEventId != null) {
+      await FirestoreSchedules.updateEvent(existingEventId, event);
+      setState(() {
+        allEvents = allEvents
+            .map((e) => e['id'] == existingEventId ? event : e)
+            .toList();
+      });
+    } else {
+      await FirestoreSchedules.addEvent(event);
+      setState(() {
+        allEvents.add(event);
+      });
+    }
   }
 
   void _showFloatingMessage(
@@ -773,7 +905,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: 10.0, // 常に上部に表示
+        top: 10.0,
         left: 10.0,
         right: 10.0,
         child: SafeArea(
@@ -803,60 +935,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       setState(() {
         _isMessageDisplayed = false;
       });
-    });
-  }
-
-  Future<void> _addEvent(
-    String newEvent,
-    String subject,
-    String eventType,
-    String content,
-    DateTime startDateTime,
-    DateTime endDateTime,
-    Color color,
-    bool isAllDay,
-  ) async {
-    if (isAllDay) {
-      startDateTime =
-          DateTime(startDateTime.year, startDateTime.month, startDateTime.day);
-      endDateTime =
-          DateTime(endDateTime.year, endDateTime.month, endDateTime.day);
-    } else {
-      startDateTime = DateTime(
-        startDateTime.year,
-        startDateTime.month,
-        startDateTime.day,
-        startDateTime.hour,
-        startDateTime.minute,
-      );
-      endDateTime = DateTime(
-        endDateTime.year,
-        endDateTime.month,
-        endDateTime.day,
-        endDateTime.hour,
-        endDateTime.minute,
-      );
-    }
-
-    final event = {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'type': eventType,
-      'event': newEvent,
-      'task': eventType == 'task' ? newEvent : '',
-      'subject': subject,
-      'content': content,
-      'startDateTime': startDateTime.toIso8601String(),
-      'endDateTime': endDateTime.toIso8601String(),
-      'startTime': isAllDay ? null : DateFormat('HH:mm').format(startDateTime),
-      'endTime': isAllDay ? null : DateFormat('HH:mm').format(endDateTime),
-      'color': color.value,
-      'isAllDay': isAllDay,
-      'multiday': !isSameDay(startDateTime, endDateTime),
-    };
-
-    await FirestoreSchedules.addEvent(event);
-    setState(() {
-      allEvents.add(event);
     });
   }
 

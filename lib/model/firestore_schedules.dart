@@ -25,22 +25,64 @@ class FirestoreSchedules {
   }
 
   static Future<void> updateEvent(
-      String eventId, Map<String, dynamic> event) async {
-    await _firestore
-        .collection(uid)
-        .doc(_collection)
-        .collection('events')
-        .doc(eventId)
-        .update(event);
+      String eventId, Map<String, dynamic> updatedEvent) async {
+    try {
+      // イベントが格納されているドキュメントを検索
+      final querySnapshot = await _firestore
+          .collection(uid)
+          .doc(_collection)
+          .collection('events')
+          .where('id', isEqualTo: eventId)
+          .get();
+
+      // ドキュメントが見つかった場合
+      if (querySnapshot.docs.isNotEmpty) {
+        final docId = querySnapshot.docs.first.id;
+
+        // ドキュメントを更新
+        await _firestore
+            .collection(uid)
+            .doc(_collection)
+            .collection('events')
+            .doc(docId)
+            .update(updatedEvent);
+      } else {
+        print('イベントが見つかりませんでした: $eventId');
+      }
+    } catch (e) {
+      print('イベントの更新に失敗しました: $e');
+      rethrow; // エラーを再度投げる
+    }
   }
 
   static Future<void> deleteEvent(String eventId) async {
-    await _firestore
-        .collection(uid)
-        .doc(_collection)
-        .collection('events')
-        .doc(eventId)
-        .delete();
+    try {
+      // イベントが格納されているドキュメントを検索
+      final querySnapshot = await _firestore
+          .collection(uid)
+          .doc(_collection)
+          .collection('events')
+          .where('id', isEqualTo: eventId)
+          .get();
+
+      // ドキュメントが見つかった場合
+      if (querySnapshot.docs.isNotEmpty) {
+        final docId = querySnapshot.docs.first.id;
+
+        // ドキュメントを削除
+        await _firestore
+            .collection(uid)
+            .doc(_collection)
+            .collection('events')
+            .doc(docId)
+            .delete();
+      } else {
+        print('イベントが見つかりませんでした: $eventId');
+      }
+    } catch (e) {
+      print('イベントの削除に失敗しました: $e');
+      rethrow; // エラーを再度投げる
+    }
   }
 
   static Future<List<Map<String, dynamic>>> getEventsForPeriod(
