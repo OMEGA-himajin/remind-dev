@@ -23,6 +23,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   bool _isAddingEvent = false;
   List<Map<String, dynamic>> allEvents = [];
   DateTime lastUpdateTime = DateTime.now();
+  bool _isMessageDisplayed = false;
 
   @override
   void initState() {
@@ -31,9 +32,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     _selectedStartDay = _selectedDay;
     _selectedEndDay = _selectedDay;
     _loadData();
-
-    // 定期的な更新を設定
-    //Timer.periodic(Duration(minutes: 5), (Timer t) => _updateDataIfNeeded());
   }
 
   Future<void> _loadData() async {
@@ -439,6 +437,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     var startDateTime = _selectedStartDay;
     var endDateTime = _selectedEndDay;
     var isAllDay = false;
+    var isAdding = false;
 
     _startDateController.text = DateFormat('yyyy-MM-dd').format(startDateTime);
     _endDateController.text = DateFormat('yyyy-MM-dd').format(endDateTime);
@@ -720,43 +719,94 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 child: Text('追加',
                     style: theme.textTheme.labelLarge
                         ?.copyWith(color: theme.colorScheme.primary)),
-                onPressed: () async {
-                  if (_eventController.text.isEmpty ||
-                      (selectedType == 'event' &&
-                          (isAllDay
-                              ? _startDateController.text.isEmpty
-                              : _startDateTimeController.text.isEmpty)) ||
-                      (selectedType == 'task' &&
-                          (_eventController.text.isEmpty ||
-                              selectedSubject.isEmpty ||
-                              _contentController.text.isEmpty))) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('入力項目を正しく入力してください'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
-                  await _addEvent(
-                    _eventController.text,
-                    selectedSubject,
-                    selectedType,
-                    _contentController.text,
-                    startDateTime,
-                    endDateTime,
-                    selectedColor,
-                    isAllDay,
-                  );
-                  Navigator.pop(context);
-                  setState(() {});
-                },
+                onPressed: isAdding
+                    ? null
+                    : () async {
+                        if (_eventController.text.isEmpty ||
+                            (selectedType == 'event' &&
+                                (isAllDay
+                                    ? _startDateController.text.isEmpty
+                                    : _startDateTimeController.text.isEmpty)) ||
+                            (selectedType == 'task' &&
+                                (_eventController.text.isEmpty ||
+                                    selectedSubject.isEmpty ||
+                                    _contentController.text.isEmpty))) {
+                          _showFloatingMessage(
+                              context, '入力項目を正しく入力してください', false);
+                          return;
+                        }
+                        setState(() {
+                          isAdding = true;
+                        });
+                        await _addEvent(
+                          _eventController.text,
+                          selectedSubject,
+                          selectedType,
+                          _contentController.text,
+                          startDateTime,
+                          endDateTime,
+                          selectedColor,
+                          isAllDay,
+                        );
+                        Navigator.pop(context);
+                        _showFloatingMessage(context, '予定を追加しました', true);
+                        setState(() {
+                          isAdding = false;
+                        });
+                      },
               ),
             ],
           );
         },
       ),
     );
+  }
+
+  void _showFloatingMessage(
+      BuildContext context, String message, bool isSuccess) {
+    if (_isMessageDisplayed) return;
+
+    setState(() {
+      _isMessageDisplayed = true;
+    });
+
+    OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 0.0,
+        left: 0.0,
+        right: 0.0,
+        child: SafeArea(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+              decoration: BoxDecoration(
+                color:
+                    isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(8.0),
+                  topRight: Radius.circular(8.0),
+                ),
+              ),
+              child: Text(
+                message,
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context)!.insert(overlayEntry);
+    Future.delayed(Duration(seconds: 2), () {
+      overlayEntry.remove();
+      setState(() {
+        _isMessageDisplayed = false;
+      });
+    });
   }
 
   Future<void> _addEvent(

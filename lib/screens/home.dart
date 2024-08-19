@@ -75,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       return;
     }
-    
+
     try {
       await _auth.sendPasswordResetEmail(email: _emailController.text);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -92,14 +92,15 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return;
-
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
       setState(() {
         main.uid = userCredential.user?.uid ?? '';
       });

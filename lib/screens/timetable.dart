@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../model/firestore_timetables.dart';
 import '../model/firestore_subjects.dart';
+import 'dart:async';
 
 class TimeTableScreen extends StatefulWidget {
   const TimeTableScreen({Key? key}) : super(key: key);
@@ -18,6 +19,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   bool _saturday = true;
   bool _sunday = true;
   int times = 6;
+  bool _isMessageDisplayed = false;
 
   List<String> mon = List.filled(10, '');
   List<String> tue = List.filled(10, '');
@@ -28,23 +30,31 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   List<String> sun = List.filled(10, '');
   List<String> subjects = [''];
 
+  DateTime lastUpdateTime = DateTime.now();
+  Timer? _updateTimer;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _updateTimer = Timer.periodic(
+        Duration(minutes: 5), (Timer t) => _updateDataIfNeeded());
   }
 
-  Future<void> _updateSubjects() async {
-    List<String> timetableSubjects = await FirestoreSubjects.getSubjects();
-    setState(() {
-      subjects = timetableSubjects
-          .where((subject) => subject.trim().isNotEmpty)
-          .toList();
-    });
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _updateDataIfNeeded() async {
+    if (DateTime.now().difference(lastUpdateTime) > Duration(minutes: 5)) {
+      await _loadData();
+    }
   }
 
   Future<void> _loadData() async {
-    await FirestoreTimetables.initializeTimetableData(); // 初期データを作成
+    await FirestoreTimetables.initializeTimetableData();
     Map<String, dynamic> timetableData =
         await FirestoreTimetables.getTimetableData();
     List<String> subjectList = await FirestoreSubjects.getSubjects();
@@ -62,6 +72,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
       sun = List<String>.from(data['sun'] ?? List.filled(10, ''));
       subjects =
           subjectList.where((subject) => subject.trim().isNotEmpty).toList();
+      lastUpdateTime = DateTime.now();
     });
   }
 
@@ -293,7 +304,10 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     if (index < currentDayList.length) {
       selectedSubject = currentDayList[index];
     }
-    await _loadData();
+
+    if (!subjects.contains(selectedSubject)) {
+      selectedSubject = '';
+    }
 
     final String? result = await showDialog<String>(
       context: context,
@@ -346,8 +360,31 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     );
     if (result != null) {
       await FirestoreTimetables.updateDaySubject(day, index, result);
-      await _loadData(); // データを再読み込み
-      setState(() {}); // UIを更新
+      setState(() {
+        switch (day) {
+          case 'mon':
+            mon[index] = result;
+            break;
+          case 'tue':
+            tue[index] = result;
+            break;
+          case 'wed':
+            wed[index] = result;
+            break;
+          case 'thu':
+            thu[index] = result;
+            break;
+          case 'fri':
+            fri[index] = result;
+            break;
+          case 'sat':
+            sat[index] = result;
+            break;
+          case 'sun':
+            sun[index] = result;
+            break;
+        }
+      });
     }
   }
 
@@ -391,7 +428,6 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                     onChanged: (int? newValue) async {
                       if (newValue != null) {
                         await FirestoreTimetables.updateTimes(newValue);
-                        await _loadData();
                         setState(() {
                           times = newValue;
                         });
@@ -448,6 +484,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
 
   void _showAddSubjectDialog(BuildContext context) async {
     TextEditingController textEditingController = TextEditingController();
+    bool isAdding = false;
 
     await showDialog<String>(
       context: context,
@@ -462,30 +499,22 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 child: Column(
                   children: [
                     Expanded(
-                      child: FutureBuilder<List<String>>(
-                        future: FirestoreSubjects.getSubjects(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return CircularProgressIndicator();
-                          }
-                          List<String> subjects = snapshot.data!;
-                          return ListView.builder(
-                            itemCount: subjects.length,
-                            itemBuilder: (context, index) {
-                              if (subjects[index].trim().isEmpty)
-                                return Container();
-                              return ListTile(
-                                title: Text(subjects[index]),
-                                trailing: IconButton(
-                                  icon: Icon(Icons.delete),
-                                  onPressed: () async {
-                                    await FirestoreSubjects.deleteSubject(
-                                        subjects[index]);
-                                    setDialogState(() {});
-                                  },
-                                ),
-                              );
-                            },
+                      child: ListView.builder(
+                        itemCount: subjects.length,
+                        itemBuilder: (context, index) {
+                          if (subjects[index].trim().isEmpty)
+                            return Container();
+                          return ListTile(
+                            title: Text(subjects[index]),
+                            trailing: IconButton(
+                              icon: Icon(Icons.delete),
+                              onPressed: () async {
+                                await FirestoreSubjects.deleteSubject(
+                                    subjects[index]);
+                                subjects.removeAt(index);
+                                setDialogState(() {});
+                              },
+                            ),
                           );
                         },
                       ),
@@ -508,22 +537,28 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 ),
                 TextButton(
                   child: const Text('追加'),
-                  onPressed: () async {
-                    String subjectName = textEditingController.text.trim();
-                    if (subjectName.isNotEmpty &&
-                        !await FirestoreSubjects.subjectExists(subjectName)) {
-                      await FirestoreSubjects.addSubject(subjectName);
-                      setDialogState(() {});
-                      textEditingController.clear();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('教科を追加しました')),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('すでに同じ名前の教科が存在するか空白です。')),
-                      );
-                    }
-                  },
+                  onPressed: isAdding
+                      ? null
+                      : () async {
+                          String subjectName =
+                              textEditingController.text.trim();
+                          if (subjectName.isNotEmpty &&
+                              !subjects.contains(subjectName)) {
+                            setDialogState(() {
+                              isAdding = true;
+                            });
+                            await FirestoreSubjects.addSubject(subjectName);
+                            subjects.add(subjectName);
+                            setDialogState(() {
+                              isAdding = false;
+                            });
+                            textEditingController.clear();
+                            _showFloatingMessage(context, '教科を追加しました', true);
+                          } else {
+                            _showFloatingMessage(
+                                context, 'すでに同じ名前の教科が存在するか空白です。', false);
+                          }
+                        },
                 ),
               ],
             );
@@ -533,20 +568,65 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
     );
   }
 
-  Future<List<String>> _getSubjects() async {
-    List<String> subjects = await FirestoreSubjects.getSubjects();
-    subjects = subjects.where((subject) => subject.trim().isNotEmpty).toList();
-    return subjects;
+  void _showFloatingMessage(
+      BuildContext context, String message, bool isSuccess) {
+    if (_isMessageDisplayed) return; // 既にメッセージが表示されている場合は早期リターン
+
+    setState(() {
+      _isMessageDisplayed = true;
+    });
+
+    OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 0.0,
+        left: 0.0,
+        right: 0.0,
+        child: SafeArea(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+              decoration: BoxDecoration(
+                color:
+                    isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(8.0),
+                  topRight: Radius.circular(8.0),
+                ),
+              ),
+              child: Text(
+                message,
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context)!.insert(overlayEntry);
+    Future.delayed(Duration(seconds: 2), () {
+      overlayEntry.remove();
+      setState(() {
+        _isMessageDisplayed = false;
+      });
+    });
   }
 
   void updateSaturdayEnabled(bool value) async {
     await FirestoreTimetables.updateSaturdayEnabled(value);
-    await _loadData();
+    setState(() {
+      _saturday = value;
+    });
   }
 
   void updateSundayEnabled(bool value) async {
     await FirestoreTimetables.updateSundayEnabled(value);
-    await _loadData();
+    setState(() {
+      _sunday = value;
+    });
   }
 
   bool get saturday => _saturday;
