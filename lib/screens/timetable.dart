@@ -19,6 +19,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   bool _saturday = true;
   bool _sunday = true;
   int times = 6;
+  bool _isMessageDisplayed = false;
 
   List<String> mon = List.filled(10, '');
   List<String> tue = List.filled(10, '');
@@ -483,6 +484,7 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
 
   void _showAddSubjectDialog(BuildContext context) async {
     TextEditingController textEditingController = TextEditingController();
+    bool isAdding = false;
 
     await showDialog<String>(
       context: context,
@@ -535,23 +537,28 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                 ),
                 TextButton(
                   child: const Text('追加'),
-                  onPressed: () async {
-                    String subjectName = textEditingController.text.trim();
-                    if (subjectName.isNotEmpty &&
-                        !subjects.contains(subjectName)) {
-                      await FirestoreSubjects.addSubject(subjectName);
-                      subjects.add(subjectName);
-                      setDialogState(() {});
-                      textEditingController.clear();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('教科を追加しました')),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('すでに同じ名前の教科が存在するか空白です。')),
-                      );
-                    }
-                  },
+                  onPressed: isAdding
+                      ? null
+                      : () async {
+                          String subjectName =
+                              textEditingController.text.trim();
+                          if (subjectName.isNotEmpty &&
+                              !subjects.contains(subjectName)) {
+                            setDialogState(() {
+                              isAdding = true;
+                            });
+                            await FirestoreSubjects.addSubject(subjectName);
+                            subjects.add(subjectName);
+                            setDialogState(() {
+                              isAdding = false;
+                            });
+                            textEditingController.clear();
+                            _showFloatingMessage(context, '教科を追加しました', true);
+                          } else {
+                            _showFloatingMessage(
+                                context, 'すでに同じ名前の教科が存在するか空白です。', false);
+                          }
+                        },
                 ),
               ],
             );
@@ -559,6 +566,53 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
         );
       },
     );
+  }
+
+  void _showFloatingMessage(
+      BuildContext context, String message, bool isSuccess) {
+    if (_isMessageDisplayed) return; // 既にメッセージが表示されている場合は早期リターン
+
+    setState(() {
+      _isMessageDisplayed = true;
+    });
+
+    OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 0.0,
+        left: 0.0,
+        right: 0.0,
+        child: SafeArea(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+              decoration: BoxDecoration(
+                color:
+                    isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(8.0),
+                  topRight: Radius.circular(8.0),
+                ),
+              ),
+              child: Text(
+                message,
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context)!.insert(overlayEntry);
+    Future.delayed(Duration(seconds: 2), () {
+      overlayEntry.remove();
+      setState(() {
+        _isMessageDisplayed = false;
+      });
+    });
   }
 
   void updateSaturdayEnabled(bool value) async {
