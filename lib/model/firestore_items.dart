@@ -6,10 +6,8 @@ class Item {
   final String name;
   bool inBag;
 
-  /// コンストラクタ。`tagId`と`name`は必須、`inBag`はオプションでデフォルトは`false`。
   Item({required this.tagId, required this.name, this.inBag = false});
 
-  /// アイテムをMap形式に変換するメソッド。
   Map<String, dynamic> toMap() {
     return {
       'name': name,
@@ -17,7 +15,6 @@ class Item {
     };
   }
 
-  /// Map形式からアイテムを生成するファクトリメソッド。
   static Item fromMap(String tagId, Map<String, dynamic> map) {
     return Item(
       tagId: tagId,
@@ -35,9 +32,7 @@ class ItemRepository {
   Future<List<Item>> getAllItems(String uid) async {
     DocumentSnapshot documentSnapshot =
         await _firestore.collection(uid).doc('items').get();
-
     List<Item> items = [];
-
     if (documentSnapshot.exists) {
       Map<String, dynamic> data =
           documentSnapshot.data() as Map<String, dynamic>;
@@ -45,7 +40,6 @@ class ItemRepository {
         items.add(Item.fromMap(tagId, itemData as Map<String, dynamic>));
       });
     }
-
     return items;
   }
 
@@ -55,7 +49,7 @@ class ItemRepository {
     DocumentReference documentReference =
         _firestore.collection(uid).doc('items');
     await documentReference.set({
-      tagId: {'inbag': inBag}
+      tagId: {'inBag': inBag}
     }, SetOptions(merge: true));
   }
 
@@ -63,7 +57,8 @@ class ItemRepository {
   Future<void> addItem(String uid, Item item) async {
     DocumentReference documentReference =
         _firestore.collection(uid).doc('items');
-    await documentReference
-        .set({item.tagId: item.toMap()}, SetOptions(merge: true));
+    await documentReference.set({
+      item.tagId: {'name': item.name, 'inBag': item.inBag}
+    }, SetOptions(merge: true));
   }
 }

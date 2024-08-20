@@ -37,6 +37,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     subjects = await FirestoreSubjects.getSubjects();
     allEvents = await FirestoreSchedules.getEvents();
     lastUpdateTime = DateTime.now();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../model/firestore_items.dart';
 
 class Item {
   String name;
@@ -6,6 +7,13 @@ class Item {
   bool inBag;
 
   Item({required this.name, required this.tagID, required this.inBag});
+  factory Item.fromMap(Map<String, dynamic> data) {
+    return Item(
+      name: data['name'] ?? 'Unknown',
+      tagID: data['tagID'] ?? '',
+      inBag: data['inBag'] ?? false, // デフォルト値を設定
+    );
+  }
 }
 
 class ItemsScreen extends StatefulWidget {
@@ -19,6 +27,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   List<Item> _filteredItems = [];
   Map<Item, Set<int>> itemSelections = {};
   final List<Item> _items = []; // 全アイテムのリスト
+  final ItemRepository _itemRepository = ItemRepository(); // アイテムリポジトリのインスタンス
 
   @override
   void dispose() {
@@ -41,18 +50,36 @@ class _ItemsScreenState extends State<ItemsScreen> {
     super.initState();
     _searchController.addListener(_filterItems);
     _filteredItems = List.from(_items); // 初期状態では全アイテムを表示
+    _getItems(); // アイテムを取得するメソッドを呼び出す
   }
 
   void _addItem(String tagId) {
-    setState(() {
-      _filteredItems.add(Item(name: 'Unknown', tagID: tagId, inBag: false));
-    });
+    if (mounted) {
+      setState(() {
+        _filteredItems.add(Item(name: 'Unknown', tagID: tagId, inBag: false));
+      });
+    }
   }
 
   void _onSelectionChanged(Item item, Set<int> set) {
-    setState(() {
-      item.inBag = set.contains(1);
-    });
+    if (mounted) {
+      setState(() {
+        item.inBag = set.contains(1);
+      });
+    }
+  }
+
+  Future<void> _getItems() async {
+    List<Item> items =
+        (await _itemRepository.getAllItems('U2m7Wvq2I6MTawagyrUgKlKzWzo1'))
+            .cast<Item>(); // UIDを適切に設定してください
+    if (mounted) {
+      setState(() {
+        _items.addAll(items);
+        _filteredItems = List.from(_items);
+      });
+    }
+    print(items);
   }
 
   void _showEditDialog(Item item, int index) {
@@ -138,63 +165,103 @@ class _ItemsScreenState extends State<ItemsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: 'Search...',
-            border: InputBorder.none,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.bluetooth,
-              color: Colors.green,
+        title: Text('Items'),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search',
+                border: OutlineInputBorder(),
+              ),
             ),
-            onPressed: () {
-              String tagId = "hello";
-              setState(() {
-                _addItem(tagId);
-              });
-            },
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _filteredItems.length,
+              itemBuilder: (context, index) {
+                final item = _filteredItems[index];
+                return ListTile(
+                  title: Text(item.name),
+                  subtitle: Text('Tag ID: ${item.tagID}'),
+                  trailing: Icon(
+                    item.inBag
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                  ),
+                );
+              },
+            ),
           ),
         ],
-      ),
-      body: ListView.builder(
-        itemCount: _filteredItems.length,
-        itemBuilder: (context, index) {
-          final item = _filteredItems[index];
-          return ListTile(
-            title: Text(item.name),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SegmentedButton<int>(
-                  showSelectedIcon: false,
-                  onSelectionChanged: (Set<int> set) =>
-                      _onSelectionChanged(item, set),
-                  segments: [
-                    ButtonSegment(
-                        value: 0,
-                        label: Icon(Icons.backpack, color: Colors.grey[700])),
-                    ButtonSegment(
-                        value: 1,
-                        label:
-                            Icon(Icons.no_backpack, color: Colors.grey[700])),
-                  ],
-                  selected: itemSelections[item] ?? {item.inBag ? 1 : 0},
-                ),
-                IconButton(
-                  icon: Icon(Icons.edit),
-                  onPressed: () {
-                    _showEditDialog(item, index);
-                  },
-                ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }
 }
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(
+//         title: TextField(
+//           controller: _searchController,
+//           decoration: const InputDecoration(
+//             hintText: 'Search...',
+//             border: InputBorder.none,
+//           ),
+//         ),
+//         actions: [
+//           IconButton(
+//             icon: Icon(
+//               Icons.bluetooth,
+//               color: Colors.green,
+//             ),
+//             onPressed: () {
+//               String tagId = "hello";
+//               setState(() {
+//                 _addItem(tagId);
+//               });
+//             },
+//           ),
+//         ],
+//       ),
+//       body: ListView.builder(
+//         itemCount: _filteredItems.length,
+//         itemBuilder: (context, index) {
+//           final item = _filteredItems[index];
+//           return ListTile(
+//             title: Text(item.name),
+//             trailing: Row(
+//               mainAxisSize: MainAxisSize.min,
+//               children: [
+//                 SegmentedButton<int>(
+//                   showSelectedIcon: false,
+//                   onSelectionChanged: (Set<int> set) =>
+//                       _onSelectionChanged(item, set),
+//                   segments: [
+//                     ButtonSegment(
+//                         value: 0,
+//                         label: Icon(Icons.backpack, color: Colors.grey[700])),
+//                     ButtonSegment(
+//                         value: 1,
+//                         label:
+//                             Icon(Icons.no_backpack, color: Colors.grey[700])),
+//                   ],
+//                   selected: itemSelections[item] ?? {item.inBag ? 1 : 0},
+//                 ),
+//                 IconButton(
+//                   icon: Icon(Icons.edit),
+//                   onPressed: () {
+//                     _showEditDialog(item, index);
+//                   },
+//                 ),
+//               ],
+//             ),
+//           );
+//         },
+//       ),
+//     );
+//   }
+// }
