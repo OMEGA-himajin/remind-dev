@@ -511,8 +511,11 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
                               onPressed: () async {
                                 await FirestoreSubjects.deleteSubject(
                                     subjects[index]);
+                                String deletedSubject = subjects[index];
                                 subjects.removeAt(index);
-                                setDialogState(() {});
+                                setDialogState(() {}); // ダイアログを閉じる
+                                _showFloatingMessage(context,
+                                    '教科「$deletedSubject」を削除しました', true);
                               },
                             ),
                           );

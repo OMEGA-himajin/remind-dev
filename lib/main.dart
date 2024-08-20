@@ -6,6 +6,8 @@ import 'screens/timetable.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'screens/welcome.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 String uid = '';
 void main() async {
@@ -30,7 +32,7 @@ void main() async {
 class MyApp extends StatefulWidget {
   final ThemeMode initialThemeMode;
 
-  const MyApp({super.key, required this.initialThemeMode});
+  const MyApp({Key? key, required this.initialThemeMode}) : super(key: key);
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -92,7 +94,8 @@ class _MyAppState extends State<MyApp> {
 class MyStatefulWidget extends StatefulWidget {
   final Function(ThemeMode) onThemeModeChanged;
 
-  const MyStatefulWidget({super.key, required this.onThemeModeChanged});
+  const MyStatefulWidget({Key? key, required this.onThemeModeChanged})
+      : super(key: key);
 
   @override
   State<MyStatefulWidget> createState() => _MyStatefulWidgetState();
@@ -107,6 +110,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   ];
 
   int _selectedIndex = 0;
+  bool _isMessageDisplayed = false;
 
   void _onItemTapped(int index) {
     setState(() {
@@ -114,8 +118,106 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
     });
   }
 
+  void _showFloatingMessage(
+      BuildContext context, String message, bool isSuccess) {
+    if (_isMessageDisplayed) return;
+
+    setState(() {
+      _isMessageDisplayed = true;
+    });
+
+    OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 10.0,
+        left: 10.0,
+        right: 10.0,
+        child: SafeArea(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+              decoration: BoxDecoration(
+                color:
+                    isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Text(
+                message,
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context)!.insert(overlayEntry);
+    Future.delayed(Duration(seconds: 2), () {
+      overlayEntry.remove();
+      setState(() {
+        _isMessageDisplayed = false;
+      });
+    });
+  }
+
+  Future<void> _signOut() async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('確認'),
+          content: Text('本当にサインアウトしますか？'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('いいえ'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: Text('はい'),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseAuth.instance.signOut();
+        setState(() {});
+        _showFloatingMessage(context, 'サインアウトしました', true);
+      } catch (e) {
+        _showFloatingMessage(context, 'サインアウトエラー: $e', false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CircularProgressIndicator();
+        }
+        if (snapshot.hasData) {
+          return _buildMainScaffold();
+        } else {
+          return WelcomeScreen(onLoginSuccess: () {
+            setState(() {});
+          });
+        }
+      },
+    );
+  }
+
+  Scaffold _buildMainScaffold() {
     return Scaffold(
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
@@ -167,7 +269,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
         children: <Widget>[
           DrawerHeader(
             decoration: BoxDecoration(
-              color: Colors.blue,
+              color: Theme.of(context).primaryColor,
             ),
             child: Text(
               'メニュー',
@@ -177,39 +279,6 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               ),
             ),
           ),
-          ListTile(
-            leading: Icon(Icons.home),
-            title: Text('ホーム'),
-            onTap: () {
-              _onItemTapped(0);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.table_view),
-            title: Text('時間割'),
-            onTap: () {
-              _onItemTapped(1);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.calendar_month),
-            title: Text('スケジュール'),
-            onTap: () {
-              _onItemTapped(2);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.library_books),
-            title: Text('持ち物'),
-            onTap: () {
-              _onItemTapped(3);
-              Navigator.pop(context);
-            },
-          ),
-          Divider(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -240,6 +309,15 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                 ),
               ],
             ),
+          ),
+          Divider(),
+          ListTile(
+            leading: Icon(Icons.exit_to_app),
+            title: Text('サインアウト'),
+            onTap: () async {
+              await _signOut();
+              Navigator.pop(context); // Close the drawer
+            },
           ),
         ],
       ),
