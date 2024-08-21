@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/welcome.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'screens/license.dart';
 
 String uid = '';
 void main() async {
@@ -323,8 +324,23 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Text('ユーザーUID: $uid'),
           ),
+          ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text('ライセンス情報'),
+            onTap: () {
+              Navigator.pop(context); // Close the drawer
+              _showLicenses(context);
+            },
+          ),
         ],
       ),
+    );
+  }
+
+  void _showLicenses(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => LicensePage()),
     );
   }
 }
