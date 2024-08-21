@@ -319,6 +319,10 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               Navigator.pop(context); // Close the drawer
             },
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text('ユーザーUID: $uid'),
+          ),
         ],
       ),
     );
