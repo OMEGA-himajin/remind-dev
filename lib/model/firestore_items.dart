@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// アイテムを表現するクラス。
 class Item {
-  final String tagId;
-  final String name;
+  String tagId;
+  String name;
   bool inBag;
 
   Item({required this.tagId, required this.name, this.inBag = false});
@@ -19,7 +19,7 @@ class Item {
     return Item(
       tagId: tagId,
       name: map['name'],
-      inBag: map['inbag'],
+      inBag: map['inbag'] ?? false,
     );
   }
 }
@@ -43,14 +43,15 @@ class ItemRepository {
     return items;
   }
 
-  /// `uid`と`tagId`に基づいてアイテムの`inBag`ステータスを更新するメソッド。
-  Future<void> updateItemInBagStatus(
-      String uid, String tagId, bool inBag) async {
+  /// `uid`と`tagId`に基づいてアイテムの情報を更新するメソッド。
+  Future<void> updateItemDetails(
+      String uid, String tagId, String name, bool inBag) async {
     DocumentReference documentReference =
         _firestore.collection(uid).doc('items');
-    await documentReference.set({
-      tagId: {'inBag': inBag}
-    }, SetOptions(merge: true));
+    await documentReference.update({
+      '$tagId.name': name,
+      '$tagId.inBag': inBag,
+    });
   }
 
   /// 新しいアイテムを追加するメソッド。
@@ -60,5 +61,12 @@ class ItemRepository {
     await documentReference.set({
       item.tagId: {'name': item.name, 'inBag': item.inBag}
     }, SetOptions(merge: true));
+  }
+
+  /// `uid`と`tagId`に基づいてアイテムを削除するメソッド。
+  Future<void> deleteItem(String uid, String tagId) async {
+    DocumentReference documentReference =
+        _firestore.collection(uid).doc('items');
+    await documentReference.update({tagId: FieldValue.delete()});
   }
 }
