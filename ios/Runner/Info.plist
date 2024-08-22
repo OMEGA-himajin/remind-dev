@@ -51,21 +51,20 @@
 	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>このアプリはBluetoothを使用してデバイスと通信します。</string>
-<!-- Google Sign-in Section -->
-<key>CFBundleURLTypes</key>
-<array>
-	<dict>
-		<key>CFBundleTypeRole</key>
-		<string>Editor</string>
-		<key>CFBundleURLSchemes</key>
-		<array>
-			<!-- TODO Replace this value: -->
-			<!-- Copied from GoogleService-Info.plist key REVERSED_CLIENT_ID -->
-			<!-- この下に、先ほどコピーしたコードを貼り付ける -->
-			<string>com.googleusercontent.apps.379390566634-vgbgdcgpaovrerrq2m2r04nn64hrgaji</string>
-		</array>
-	</dict>
-</array>
-<!-- End of the Google Sign-in Section -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.379390566634-vgbgdcgpaovrerrq2m2r04nn64hrgaji</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSLocationUsageDescription</key>
+	<string>気象情報を取得する際に位置情報を取得します。</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string></string>
 </dict>
 </plist>
