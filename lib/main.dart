@@ -105,7 +105,10 @@ class MyStatefulWidget extends StatefulWidget {
 class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   static final List<Widget> _screens = [
     const HomeScreen(),
-    const TimeTableScreen(),
+    PageStorage(
+      bucket: PageStorageBucket(),
+      child: TimeTableScreen(key: PageStorageKey('timetable')),
+    ),
     const schedule.ScheduleScreen(),
     // 持ち物画面はここに追加する必要があります
   ];
