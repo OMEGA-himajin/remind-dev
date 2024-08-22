@@ -44,14 +44,19 @@ class ItemRepository {
   }
 
   /// `uid`と`tagId`に基づいてアイテムの情報を更新するメソッド。
-  Future<void> updateItemDetails(
-      String uid, String tagId, String name, bool inBag) async {
+  Future<void> updateItemDetails(String uid, String oldTagId, String newTagId,
+      String name, bool inBag) async {
     DocumentReference documentReference =
         _firestore.collection(uid).doc('items');
+    // 新しいフィールド名で更新
     await documentReference.update({
-      '$tagId.name': name,
-      '$tagId.inBag': inBag,
+      '$newTagId.name': name,
+      '$newTagId.inBag': inBag,
     });
+    // 古いフィールドを削除
+    if (oldTagId != newTagId) {
+      await documentReference.update({oldTagId: FieldValue.delete()});
+    }
   }
 
   /// 新しいアイテムを追加するメソッド。
