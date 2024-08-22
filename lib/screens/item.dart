@@ -49,13 +49,19 @@ class _ItemsScreenState extends State<ItemsScreen> {
     }
   }
 
-  void _onSelectionChanged(Item item, Set<int> set) {
+  void _onSelectionChanged(Item item, Set<int> set, String newTagId) {
     if (mounted) {
       setState(() {
         item.inBag = set.contains(1);
       });
       _itemRepository.updateItemDetails(
-          'U2m7Wvq2I6MTawagyrUgKlKzWzo1', item.tagId, item.name, item.inBag);
+        'U2m7Wvq2I6MTawagyrUgKlKzWzo1', // UIDを適切に設定
+        item.tagId, // 既存のtagId
+        newTagId, // 新しいtagId（変更がない場合）
+        item.name,
+        item.inBag,
+      );
+      item.tagId = newTagId;
     }
   }
 
@@ -149,7 +155,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                               if (characteristic.uuid == characteristicUuid) {
                                 // 通知をオンにする
                                 await characteristic.setNotifyValue(true);
-                                characteristic.value.listen((value) {
+                                characteristic.lastValueStream.listen((value) {
                                   // 通知を受け取ったときの処理
                                   print('Received data: $value');
                                 });
@@ -230,7 +236,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
               child: TextField(
                 controller: _searchController,
                 decoration: const InputDecoration(
-                  hintText: 'Search...',
+                  hintText: '検索',
                   border: InputBorder.none,
                 ),
               ),
@@ -257,7 +263,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                 SegmentedButton<int>(
                   showSelectedIcon: false,
                   onSelectionChanged: (Set<int> set) =>
-                      _onSelectionChanged(item, set),
+                      _onSelectionChanged(item, set, item.tagId),
                   segments: [
                     ButtonSegment(
                         value: 1,
@@ -328,7 +334,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
                                 // Firestoreの値を更新
                                 await _itemRepository.updateItemDetails(
                                   'U2m7Wvq2I6MTawagyrUgKlKzWzo1', // UIDを適切に設定
-                                  tagIdController.text,
+                                  _filteredItems[index].tagId, // 既存のtagId
+                                  tagIdController.text, // 新しいtagId
                                   nameController.text,
                                   _filteredItems[index].inBag,
                                 );
