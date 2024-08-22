@@ -224,7 +224,10 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
         title: Text(_getAppBarTitle()),
       ),
       drawer: _buildCommonDrawer(context),
-      body: _screens[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
