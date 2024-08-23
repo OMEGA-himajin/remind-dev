@@ -8,13 +8,10 @@ class TimeTableScreen extends StatefulWidget {
 
   @override
   _TimeTableScreenState createState() => _TimeTableScreenState();
-
-  Widget buildTimetableSpecificMenuItems(BuildContext context) {
-    return _TimeTableScreenState().buildTimetableSpecificMenuItems(context);
-  }
 }
 
-class _TimeTableScreenState extends State<TimeTableScreen> {
+class _TimeTableScreenState extends State<TimeTableScreen>
+    with AutomaticKeepAliveClientMixin {
   late Map<String, dynamic> data = {};
   bool _saturday = true;
   bool _sunday = true;
@@ -63,7 +60,11 @@ class _TimeTableScreenState extends State<TimeTableScreen> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return _isLoaded
         ? Scaffold(
             backgroundColor: const Color.fromARGB(255, 5, 53, 8),
