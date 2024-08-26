@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import '../main.dart' as main;
+import '../model/firestore_schedules.dart';
 
 class WeatherData {
   final String cityName;
@@ -39,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   User? _user;
   WeatherData? _weatherData;
   String _errorMessage = '';
+  List<Map<String, dynamic>> _upcomingEvents = [];
 
   @override
   void initState() {
@@ -49,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
         main.uid = user?.uid ?? '';
       });
       _fetchWeatherData();
+      _fetchUpcomingEvents();
     });
   }
 
@@ -61,16 +64,15 @@ class _HomeScreenState extends State<HomeScreen> {
           throw Exception('位置情報の権限が拒否されました');
         }
       }
-      
+
       if (permission == LocationPermission.deniedForever) {
         throw Exception('位置情報の権限が永久に拒否されています。設定から変更してください。');
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: Duration(seconds: 10),
       );
-
-      print('Position: ${position.latitude}, ${position.longitude}');
 
       final weatherData = await getWeatherData(
         latitude: position.latitude,
@@ -96,12 +98,17 @@ class _HomeScreenState extends State<HomeScreen> {
     const apiKey = '0a0c0fa899d5f49a5288ff7ca7fdd294';
 
     final response = await http.get(Uri.parse(
-      '$apiUrl?lat=$latitude&lon=$longitude&appid=$apiKey&units=metric',
+      '$apiUrl?lat=$latitude&lon=$longitude&appid=$apiKey&units=metric&lang=ja',
     ));
-    print('API Response: ${response.body}');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      final cityName = data['city']['name'];
+      String cityName = data['city']['name'];
+
+      // If the city name is not in Japanese or seems incorrect, use a fallback method
+      if (!isJapanese(cityName) || cityName.contains('市') == false) {
+        cityName = await getJapaneseCityName(latitude, longitude);
+      }
+
       final forecasts = <WeatherForecast>[];
       for (final item in data['list']) {
         final dateTime = DateTime.fromMillisecondsSinceEpoch(item['dt'] * 1000);
@@ -119,6 +126,39 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       throw Exception('Failed to fetch weather data: ${response.statusCode}');
     }
+  }
+
+  bool isJapanese(String text) {
+    return RegExp(
+            r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]')
+        .hasMatch(text);
+  }
+
+  Future<String> getJapaneseCityName(double latitude, double longitude) async {
+    const geocodingApiUrl = 'https://api.openweathermap.org/geo/1.0/reverse';
+    const apiKey = '0a0c0fa899d5f49a5288ff7ca7fdd294';
+
+    final response = await http.get(Uri.parse(
+      '$geocodingApiUrl?lat=$latitude&lon=$longitude&limit=1&appid=$apiKey&lang=ja',
+    ));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      if (data.isNotEmpty) {
+        final location = data[0];
+        String name = location['local_names']['ja'] ?? location['name'];
+        String state = location['state'] ?? '';
+
+        // Combine state and name if name doesn't include "市"
+        if (!name.contains('市') && state.isNotEmpty) {
+          name = '$state$name';
+        }
+
+        return name;
+      }
+    }
+
+    throw Exception('Failed to get Japanese city name');
   }
 
   Widget getWeatherIcon(int weatherCode) {
@@ -215,52 +255,161 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _fetchUpcomingEvents() async {
+    try {
+      final now = DateTime.now();
+      final endDate =
+          now.add(Duration(days: 7)); // Fetch events for the next 7 days
+      final events = await FirestoreSchedules.getEventsForPeriod(now, endDate);
+      setState(() {
+        _upcomingEvents = events.map((event) {
+          // Ensure all required fields are present and have default values if missing
+          return {
+            'type': event['type'] ?? 'event',
+            'title': event['event'] ?? event['task'] ?? '無題の予定',
+            'startDateTime': event['startDateTime'] ?? now.toIso8601String(),
+            'endDateTime': event['endDateTime'] ??
+                event['startDateTime'] ??
+                now.toIso8601String(),
+            'subject': event['subject'],
+            'content': event['content'],
+            'isAllDay': event['isAllDay'] ?? false,
+          };
+        }).toList();
+      });
+    } catch (e) {
+      print('Error fetching upcoming events: $e');
+      setState(() {
+        _upcomingEvents = [];
+      });
+    }
+  }
+
+  Widget _buildUpcomingEventsList() {
+    if (_upcomingEvents.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Text('直近の予定はありません', style: TextStyle(fontStyle: FontStyle.italic)),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _upcomingEvents.map((event) {
+        final startDateTime = DateTime.parse(event['startDateTime'] ?? '');
+        final endDateTime = event['endDateTime'] != null
+            ? DateTime.parse(event['endDateTime'])
+            : startDateTime;
+        final title = event['title'] ?? '無題の予定';
+        final isAllDay = event['isAllDay'] == true;
+        final isMultiDay = !isSameDate(startDateTime, endDateTime);
+
+        String dateTimeText;
+        if (event['type'] == 'task') {
+          // 課題の場合
+          dateTimeText = DateFormat('MM/dd').format(startDateTime);
+        } else if (isAllDay) {
+          // 終日イベントの場合
+          dateTimeText = isMultiDay
+              ? '${DateFormat('MM/dd').format(startDateTime)} ~ ${DateFormat('MM/dd').format(endDateTime)} 終日'
+              : '${DateFormat('MM/dd').format(startDateTime)} 終日';
+        } else {
+          // 通常のイベントの場合
+          if (isMultiDay) {
+            dateTimeText =
+                '${DateFormat('MM/dd HH:mm').format(startDateTime)} ~ ${DateFormat('MM/dd HH:mm').format(endDateTime)}';
+          } else {
+            dateTimeText =
+                '${DateFormat('MM/dd HH:mm').format(startDateTime)} ~ ${DateFormat('HH:mm').format(endDateTime)}';
+          }
+        }
+
+        if (event['type'] == 'task') {
+          // タスクの場合の表示
+          return ListTile(
+            leading: Icon(Icons.assignment, color: Colors.orange),
+            title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('期限: $dateTimeText'),
+                if (event['subject'] != null) Text('教科: ${event['subject']}'),
+                if (event['content'] != null) Text('内容: ${event['content']}'),
+              ],
+            ),
+          );
+        } else {
+          // イベントの場合の表示
+          return ListTile(
+            leading: Icon(Icons.event, color: Colors.blue),
+            title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(dateTimeText),
+          );
+        }
+      }).toList(),
+    );
+  }
+
+  bool isSameDate(DateTime date1, DateTime date2) {
+    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ホーム'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('ようこそ、${_user?.email ?? 'ゲスト'}さん'),
-            const SizedBox(height: 16),
-            if (_errorMessage.isNotEmpty)
-              Text(_errorMessage, style: TextStyle(color: Colors.red)),
-            if (_weatherData != null) ...[
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('ようこそ、${_user?.email ?? 'ゲスト'}さん'),
+              const SizedBox(height: 16),
               Text(
-                '${_weatherData!.cityName}の天気予報',
+                '直近の予定',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _weatherData!.forecasts.length,
-                  itemBuilder: (context, index) {
-                    final forecast = _weatherData!.forecasts[index];
-                    final formattedDate =
-                        DateFormat('MM月dd日 HH').format(forecast.dateTime);
-                    return Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        children: [
-                          Text(formattedDate),
-                          getWeatherIcon(forecast.weatherCode),
-                          Text('${forecast.temperature.toStringAsFixed(1)}°C'),
-                          Text(
-                              '${forecast.precipitationProbability.toStringAsFixed(0)}%'),
-                        ],
-                      ),
-                    );
-                  },
+              _buildUpcomingEventsList(),
+              const SizedBox(height: 16),
+              if (_errorMessage.isNotEmpty)
+                Text(_errorMessage, style: TextStyle(color: Colors.red)),
+              if (_weatherData != null) ...[
+                Text(
+                  '${_weatherData!.cityName}の天気予報',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-              ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 200,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _weatherData!.forecasts.length,
+                    itemBuilder: (context, index) {
+                      final forecast = _weatherData!.forecasts[index];
+                      final formattedDate =
+                          DateFormat('MM月dd日 HH').format(forecast.dateTime);
+                      return Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          children: [
+                            Text(formattedDate),
+                            getWeatherIcon(forecast.weatherCode),
+                            Text(
+                                '${forecast.temperature.toStringAsFixed(1)}°C'),
+                            Text(
+                                '${forecast.precipitationProbability.toStringAsFixed(0)}%'),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

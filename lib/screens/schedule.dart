@@ -236,59 +236,69 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
- Widget _buildEventList() {
-  final theme = Theme.of(context);
-  final events = _getEventsForDay(_selectedDay);
+  Widget _buildEventList() {
+    final theme = Theme.of(context);
+    final events = _getEventsForDay(_selectedDay);
 
-  if (events.isEmpty) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Text('予定はありません', style: theme.textTheme.bodyMedium),
+    if (events.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Text('予定はありません', style: theme.textTheme.bodyMedium),
+      );
+    }
+
+    return Expanded(
+      child: ListView.builder(
+        itemCount: events.length,
+        itemBuilder: (context, index) {
+          final event = events[index];
+          return Card(
+            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            color: theme.cardColor,
+            child: ListTile(
+              title: Text(
+                event['type'] == 'task' ? event['task']! : event['event']!,
+                style: theme.textTheme.titleMedium,
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (event['type'] == 'task')
+                    Text('教科: ${event['subject']!}',
+                        style: theme.textTheme.bodySmall),
+                  if (event['type'] == 'task' &&
+                      event['content'] != null &&
+                      event['content'].isNotEmpty)
+                    Text('内容: ${event['content']}',
+                        style: theme.textTheme.bodySmall),
+                  if (event['type'] == 'event')
+                    Text(
+                      event['isAllDay'] == true
+                          ? '終日'
+                          : '${event['startTime']} 〜 ${event['endTime']}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.edit, color: theme.iconTheme.color),
+                    onPressed: () => _showAddEventDialog(existingEvent: event),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete, color: theme.iconTheme.color),
+                    onPressed: () => _showDeleteConfirmationDialog(event),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
-
-  return Expanded(
-    child: ListView.builder(
-      itemCount: events.length,
-      itemBuilder: (context, index) {
-        final event = events[index];
-        return Card(
-          margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-          color: theme.cardColor,
-          child: ListTile(
-            title: Text(
-              event['type'] == 'task' ? event['task']! : event['event']!,
-              style: theme.textTheme.titleMedium,
-            ),
-            subtitle: event['type'] == 'task'
-                ? Text('教科: ${event['subject']!}',
-                    style: theme.textTheme.bodySmall)
-                : Text(
-                    event['isAllDay'] == true
-                        ? '終日'
-                        : '${event['startTime']} 〜 ${event['endTime']}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.edit, color: theme.iconTheme.color),
-                  onPressed: () => _showAddEventDialog(existingEvent: event),
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete, color: theme.iconTheme.color),
-                  onPressed: () => _showDeleteConfirmationDialog(event),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
-}
-
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> event) {
     showDialog(
