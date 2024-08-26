@@ -67,85 +67,84 @@ class _TimeTableScreenState extends State<TimeTableScreen>
     super.build(context);
     return _isLoaded
         ? Scaffold(
-            backgroundColor: const Color.fromARGB(255, 5, 53, 8),
             body: Stack(
               children: [
                 Center(
-                  child: DefaultTextStyle(
-                    style: const TextStyle(color: Colors.white),
-                    child: Table(
-                      border: TableBorder.all(color: Colors.white, width: 2),
-                      defaultColumnWidth: const FlexColumnWidth(),
-                      columnWidths: const {0: FixedColumnWidth(50.0)},
-                      children: [
+                  child: Table(
+                    border: TableBorder.all(
+                      color: Theme.of(context).dividerColor,
+                      width: 1,
+                    ),
+                    defaultColumnWidth: const FlexColumnWidth(),
+                    columnWidths: const {0: FixedColumnWidth(50.0)},
+                    children: [
+                      TableRow(
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text(' '),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('月'),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('火'),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('水'),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('木'),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('金'),
+                          ),
+                          if (_saturday)
+                            const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('土'),
+                            ),
+                          if (_sunday)
+                            const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('日'),
+                            ),
+                        ],
+                      ),
+                      for (int i = 1; i <= times; i++)
                         TableRow(
                           children: [
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text(' '),
+                            Padding(
+                              padding: const EdgeInsets.all(2.0),
+                              child: SizedBox(
+                                height: 50,
+                                child: Center(child: Text('$i')),
+                              ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('月'),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('火'),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('水'),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('木'),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text('金'),
-                            ),
+                            _buildTableCell(context, 'mon', mon, i),
+                            _buildTableCell(context, 'tue', tue, i),
+                            _buildTableCell(context, 'wed', wed, i),
+                            _buildTableCell(context, 'thu', thu, i),
+                            _buildTableCell(context, 'fri', fri, i),
                             if (_saturday)
-                              const Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text('土'),
-                              ),
+                              _buildTableCell(context, 'sat', sat, i),
                             if (_sunday)
-                              const Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text('日'),
-                              ),
+                              _buildTableCell(context, 'sun', sun, i),
                           ],
                         ),
-                        for (int i = 1; i <= times; i++)
-                          TableRow(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(2.0),
-                                child: SizedBox(
-                                  height: 50,
-                                  child: Center(child: Text('$i')),
-                                ),
-                              ),
-                              _buildTableCell(context, 'mon', mon, i),
-                              _buildTableCell(context, 'tue', tue, i),
-                              _buildTableCell(context, 'wed', wed, i),
-                              _buildTableCell(context, 'thu', thu, i),
-                              _buildTableCell(context, 'fri', fri, i),
-                              if (_saturday)
-                                _buildTableCell(context, 'sat', sat, i),
-                              if (_sunday)
-                                _buildTableCell(context, 'sun', sun, i),
-                            ],
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
                 Positioned(
                   right: 16,
                   bottom: 16,
                   child: PopupMenuButton(
-                    icon: Icon(Icons.settings, color: Colors.white),
+                    icon: Icon(Icons.settings),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -244,12 +243,14 @@ class _TimeTableScreenState extends State<TimeTableScreen>
       },
       child: Container(
         height: 50,
-        color: Colors.transparent,
+        color: Theme.of(context).brightness == Brightness.light
+            ? Colors.grey[200]
+            : Colors.grey[800],
         alignment: Alignment.center,
         child: Text(
           list[i - 1],
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
         ),
       ),
     );
@@ -396,84 +397,6 @@ class _TimeTableScreenState extends State<TimeTableScreen>
     }).toList();
   }
 
-  Widget buildTimetableSpecificMenuItems(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        PopupMenuButton(
-          itemBuilder: (BuildContext context) {
-            return [
-              PopupMenuItem(
-                child: ListTile(
-                  title: Text("教科の追加"),
-                  trailing: Icon(Icons.add),
-                  onTap: () {
-                    _showAddSubjectDialog(context);
-                  },
-                ),
-              ),
-              PopupMenuItem(
-                child: ListTile(
-                  title: Text("時間数の変更"),
-                  trailing: DropdownButton<int>(
-                    value: times,
-                    onChanged: (int? newValue) async {
-                      if (newValue != null) {
-                        await FirestoreTimetables.updateTimes(newValue);
-                        setState(() {
-                          times = newValue;
-                        });
-                      }
-                    },
-                    items: List.generate(
-                      10,
-                      (index) => DropdownMenuItem<int>(
-                        value: index + 1,
-                        child: Text('${index + 1}時間'),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              PopupMenuItem(
-                child: StatefulBuilder(
-                  builder: (BuildContext context, StateSetter setState) {
-                    return Column(
-                      children: [
-                        SwitchListTile(
-                          title: Text('土曜日を表示する'),
-                          value: _saturday,
-                          onChanged: (bool value) async {
-                            await FirestoreTimetables.updateSaturdayEnabled(
-                                value);
-                            setState(() {
-                              _saturday = value;
-                            });
-                          },
-                        ),
-                        SwitchListTile(
-                          title: Text('日曜日を表示する'),
-                          value: _sunday,
-                          onChanged: (bool value) async {
-                            await FirestoreTimetables.updateSundayEnabled(
-                                value);
-                            setState(() {
-                              _sunday = value;
-                            });
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ];
-          },
-        ),
-      ],
-    );
-  }
-
   void _showAddSubjectDialog(BuildContext context) async {
     TextEditingController textEditingController = TextEditingController();
     bool isAdding = false;
@@ -574,7 +497,7 @@ class _TimeTableScreenState extends State<TimeTableScreen>
     OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: 10.0, // 常に上部に表示
+        top: 10.0,
         left: 10.0,
         right: 10.0,
         child: SafeArea(
@@ -583,13 +506,15 @@ class _TimeTableScreenState extends State<TimeTableScreen>
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
               decoration: BoxDecoration(
-                color:
-                    isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
+                color: isSuccess
+                    ? Theme.of(context).colorScheme.secondary
+                    : Theme.of(context).colorScheme.error,
                 borderRadius: BorderRadius.circular(8.0),
               ),
               child: Text(
                 message,
-                style: TextStyle(color: Colors.white),
+                style:
+                    TextStyle(color: Theme.of(context).colorScheme.onSecondary),
                 textAlign: TextAlign.center,
               ),
             ),
