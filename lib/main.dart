@@ -102,10 +102,7 @@ class MyStatefulWidget extends StatefulWidget {
 class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   static final List<Widget> _screens = [
     const HomeScreen(),
-    PageStorage(
-      bucket: PageStorageBucket(),
-      child: TimeTableScreen(key: PageStorageKey('timetable')),
-    ),
+    const TimeTableScreen(),
     const schedule.ScheduleScreen(),
     // 持ち物画面はここに追加する必要があります
   ];
@@ -224,10 +221,7 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
         title: Text(_getAppBarTitle()),
       ),
       drawer: _buildCommonDrawer(context),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      ),
+      body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,

@@ -7,9 +7,10 @@ import 'package:intl/intl.dart';
 import '../main.dart' as main;
 
 class WeatherData {
+  final String cityName;
   final List<WeatherForecast> forecasts;
 
-  WeatherData({required this.forecasts});
+  WeatherData({required this.cityName, required this.forecasts});
 }
 
 class WeatherForecast {
@@ -37,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   User? _user;
   WeatherData? _weatherData;
+  String _errorMessage = '';
 
   @override
   void initState() {
@@ -52,22 +54,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchWeatherData() async {
     try {
-      // Get the user's location
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('位置情報の権限が拒否されました');
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('位置情報の権限が永久に拒否されています。設定から変更してください。');
+      }
+
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // Fetch the weather data using the user's location
+      print('Position: ${position.latitude}, ${position.longitude}');
+
       final weatherData = await getWeatherData(
         latitude: position.latitude,
         longitude: position.longitude,
       );
       setState(() {
         _weatherData = weatherData;
+        _errorMessage = '';
       });
     } catch (e) {
-      // Handle any errors that occur while getting the user's location or fetching the weather data
-      print('Error: $e');
+      print('Error in _fetchWeatherData: $e');
+      setState(() {
+        _errorMessage = '天気情報の取得に失敗しました: $e';
+      });
     }
   }
 
@@ -75,21 +92,22 @@ class _HomeScreenState extends State<HomeScreen> {
     required double latitude,
     required double longitude,
   }) async {
-    // Open Weather API を使って天気情報を取得する
     const apiUrl = 'https://api.openweathermap.org/data/2.5/forecast';
     const apiKey = '0a0c0fa899d5f49a5288ff7ca7fdd294';
 
     final response = await http.get(Uri.parse(
       '$apiUrl?lat=$latitude&lon=$longitude&appid=$apiKey&units=metric',
     ));
+    print('API Response: ${response.body}');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
+      final cityName = data['city']['name'];
       final forecasts = <WeatherForecast>[];
       for (final item in data['list']) {
         final dateTime = DateTime.fromMillisecondsSinceEpoch(item['dt'] * 1000);
-        final weatherCode = item['weather'][0]['id'];
-        final temperature = item['main']['temp'];
-        final precipitationProbability = item['pop'] * 100;
+        final weatherCode = item['weather'][0]['id'] as int;
+        final temperature = (item['main']['temp'] as num).toDouble();
+        final precipitationProbability = (item['pop'] as num).toDouble() * 100;
         forecasts.add(WeatherForecast(
           dateTime: dateTime,
           weatherCode: weatherCode,
@@ -97,9 +115,9 @@ class _HomeScreenState extends State<HomeScreen> {
           precipitationProbability: precipitationProbability,
         ));
       }
-      return WeatherData(forecasts: forecasts);
+      return WeatherData(cityName: cityName, forecasts: forecasts);
     } else {
-      throw Exception('Failed to fetch weather data');
+      throw Exception('Failed to fetch weather data: ${response.statusCode}');
     }
   }
 
@@ -210,7 +228,14 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text('ようこそ、${_user?.email ?? 'ゲスト'}さん'),
             const SizedBox(height: 16),
-            if (_weatherData != null)
+            if (_errorMessage.isNotEmpty)
+              Text(_errorMessage, style: TextStyle(color: Colors.red)),
+            if (_weatherData != null) ...[
+              Text(
+                '${_weatherData!.cityName}の天気予報',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               Expanded(
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
@@ -225,15 +250,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(formattedDate),
                           getWeatherIcon(forecast.weatherCode),
-                          Text('${forecast.temperature}°C'),
+                          Text('${forecast.temperature.toStringAsFixed(1)}°C'),
                           Text(
-                              '${forecast.precipitationProbability.toStringAsFixed(2)}%'),
+                              '${forecast.precipitationProbability.toStringAsFixed(0)}%'),
                         ],
                       ),
                     );
                   },
                 ),
               ),
+            ],
           ],
         ),
       ),
