@@ -3,12 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/home.dart';
 import 'screens/schedule.dart' as schedule;
 import 'screens/timetable.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/welcome.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'screens/license.dart';
 
 String uid = '';
 void main() async {
@@ -26,7 +24,6 @@ void main() async {
   } else {
     themeMode = ThemeMode.system;
   }
-  FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
   runApp(MyApp(initialThemeMode: themeMode));
 }
 
