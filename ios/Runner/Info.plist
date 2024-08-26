@@ -24,10 +24,6 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>INIntentsSupported</key>
-	<array>
-		<string>Intent</string>
-	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -50,7 +46,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>このアプリはBluetoothを使用してデバイスと通信します。</string>
+	<string>このアプリはBluetoothを使用してデバイスと通信し、機能を提供します。</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>このアプリはBluetoothを使用して周辺デバイスと通信します。</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -62,9 +60,11 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSLocationUsageDescription</key>
-	<string>気象情報を取得する際に位置情報を取得します。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>気象情報を取得するために現在地の位置情報を使用します。</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>バックグラウンドでの気象情報更新のために位置情報を使用します。</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>アプリの機能を最大限に活用するために、常時位置情報へのアクセスが必要です。</string>
 </dict>
 </plist>
