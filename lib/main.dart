@@ -60,10 +60,10 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         fontFamily: 'NotoSansJP',
         brightness: Brightness.light,
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.green,
         colorScheme: ColorScheme.light(
-          primary: Colors.blue,
-          secondary: Colors.blueAccent,
+          primary: Color.fromARGB(255, 2, 138, 32),
+          secondary: Color.fromARGB(255, 2, 138, 32),
           background: Colors.white,
           surface: Colors.white,
           onBackground: Colors.black,
@@ -73,10 +73,10 @@ class _MyAppState extends State<MyApp> {
       darkTheme: ThemeData(
         fontFamily: 'NotoSansJP',
         brightness: Brightness.dark,
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.green,
         colorScheme: ColorScheme.dark(
-          primary: Colors.blue,
-          secondary: Colors.blueAccent,
+          primary: Color.fromARGB(255, 2, 138, 32),
+          secondary: Color.fromARGB(255, 2, 138, 32),
           background: Colors.grey[900]!,
           surface: Colors.grey[800]!,
           onBackground: Colors.white,
