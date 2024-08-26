@@ -243,9 +243,7 @@ class _TimeTableScreenState extends State<TimeTableScreen>
       },
       child: Container(
         height: 50,
-        color: Theme.of(context).brightness == Brightness.light
-            ? Colors.grey[200]
-            : Colors.grey[800],
+        color: Theme.of(context).scaffoldBackgroundColor,
         alignment: Alignment.center,
         child: Text(
           list[i - 1],
