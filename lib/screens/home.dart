@@ -41,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   WeatherData? _weatherData;
   String _errorMessage = '';
   List<Map<String, dynamic>> _upcomingEvents = [];
+  bool _isLoadingWeather = false;
 
   @override
   void initState() {
@@ -56,6 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _fetchWeatherData() async {
+    setState(() {
+      _isLoadingWeather = true; // 追加された行
+    });
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -81,11 +85,13 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _weatherData = weatherData;
         _errorMessage = '';
+        _isLoadingWeather = false; // 追加された行
       });
     } catch (e) {
       print('Error in _fetchWeatherData: $e');
       setState(() {
         _errorMessage = '天気情報の取得に失敗しました: $e';
+        _isLoadingWeather = false; // 追加された行
       });
     }
   }
@@ -289,7 +295,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_upcomingEvents.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Text('直近の予定はありません', style: TextStyle(fontStyle: FontStyle.italic)),
+        child:
+            Text('直近の予定はありません', style: TextStyle(fontStyle: FontStyle.italic)),
       );
     }
 
@@ -351,15 +358,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   bool isSameDate(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ホーム'),
-      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -376,7 +382,17 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               if (_errorMessage.isNotEmpty)
                 Text(_errorMessage, style: TextStyle(color: Colors.red)),
-              if (_weatherData != null) ...[
+              if (_isLoadingWeather)
+                Center(
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 8),
+                      Text('天気情報を取得中...'),
+                    ],
+                  ),
+                )
+              else if (_weatherData != null) ...[
                 Text(
                   '${_weatherData!.cityName}の天気予報',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
