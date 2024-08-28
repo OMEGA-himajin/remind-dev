@@ -25,6 +25,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   bool _isLogin = true;
   bool _isMainScreen = true;
+  bool _isMessageDisplayed = false;
 
   Future<void> _signInWithGoogle() async {
     try {
@@ -44,9 +45,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       });
       _navigateToHome();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Googleログインエラー: $e')),
-      );
+      _showFloatingMessage(context, 'Googleログインエラー: $e', false);
     }
   }
 
@@ -72,9 +71,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       });
       _navigateToHome();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ゲストログインエラー: $e')),
-      );
+      _showFloatingMessage(context, 'ゲストログインエラー: $e', false);
     }
   }
 
@@ -89,17 +86,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       });
       _navigateToHome();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ログインエラー: $e')),
-      );
+      _showFloatingMessage(context, 'ログインエラー: $e', false);
     }
   }
 
   Future<void> _signUp() async {
     if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('パスワードが一致しません')),
-      );
+      _showFloatingMessage(context, 'パスワードが一致しません', false);
       return;
     }
 
@@ -113,34 +106,70 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       });
       _navigateToHome();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('アカウント作成エラー: $e')),
-      );
+      _showFloatingMessage(context, 'アカウント作成エラー: $e', false);
     }
   }
 
   Future<void> _resetPassword() async {
     if (_emailController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('メールアドレスを入力してください')),
-      );
+      _showFloatingMessage(context, 'メールアドレスを入力してください', false);
       return;
     }
 
     try {
       await _auth.sendPasswordResetEmail(email: _emailController.text);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('パスワードリセットメールを送信しました')),
-      );
+      _showFloatingMessage(context, 'パスワードリセットメールを送信しました', true);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('パスワードリセットエラー: $e')),
-      );
+      _showFloatingMessage(context, 'パスワードリセットエラー: $e', false);
     }
   }
 
   void _navigateToHome() {
     widget.onLoginSuccess();
+  }
+
+  void _showFloatingMessage(
+      BuildContext context, String message, bool isSuccess) {
+    if (_isMessageDisplayed) return;
+
+    setState(() {
+      _isMessageDisplayed = true;
+    });
+
+    OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 10.0,
+        left: 10.0,
+        right: 10.0,
+        child: SafeArea(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+              decoration: BoxDecoration(
+                color:
+                    isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Text(
+                message,
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context)!.insert(overlayEntry);
+    Future.delayed(Duration(seconds: 2), () {
+      overlayEntry.remove();
+      setState(() {
+        _isMessageDisplayed = false;
+      });
+    });
   }
 
   Widget _buildMainScreen() {
@@ -233,6 +262,4 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       ),
     );
   }
-
-  
 }

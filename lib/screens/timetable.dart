@@ -504,15 +504,13 @@ class _TimeTableScreenState extends State<TimeTableScreen>
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
               decoration: BoxDecoration(
-                color: isSuccess
-                    ? Theme.of(context).colorScheme.secondary
-                    : Theme.of(context).colorScheme.error,
+                color:
+                    isSuccess ? Colors.green : Color.fromARGB(255, 121, 2, 2),
                 borderRadius: BorderRadius.circular(8.0),
               ),
               child: Text(
                 message,
-                style:
-                    TextStyle(color: Theme.of(context).colorScheme.onSecondary),
+                style: TextStyle(color: Colors.white),
                 textAlign: TextAlign.center,
               ),
             ),
