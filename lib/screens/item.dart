@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../model/firestore_items.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../main.dart' as main;
 
 class ItemsScreen extends StatefulWidget {
   const ItemsScreen({super.key});
@@ -16,6 +17,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   bool isConnected = false;
   final List<Item> _items = []; // 全アイテムのリスト
   final ItemRepository _itemRepository = ItemRepository(); // アイテムリポジトリのインスタンス
+  final uid = main.uid; // UIDを適切に設定
 
   @override
   void dispose() {
@@ -44,7 +46,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   void _addItem(String tagId) {
     if (mounted) {
       setState(() {
-        _filteredItems.add(Item(name: 'Unknown', tagId: tagId, inBag: false));
+        _filteredItems.add(Item(name: '名前未設定', tagId: tagId, inBag: false));
       });
     }
   }
@@ -55,7 +57,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
         item.inBag = set.contains(1);
       });
       _itemRepository.updateItemDetails(
-        'U2m7Wvq2I6MTawagyrUgKlKzWzo1', // UIDを適切に設定
+        uid, // UID
         item.tagId, // 既存のtagId
         newTagId, // 新しいtagId（変更がない場合）
         item.name,
@@ -66,9 +68,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   }
 
   Future<void> _getItems() async {
-    List<Item> items =
-        (await _itemRepository.getAllItems('U2m7Wvq2I6MTawagyrUgKlKzWzo1'))
-            .cast<Item>(); // UIDを適切に設定してください
+    List<Item> items = (await _itemRepository.getAllItems(uid)).cast<Item>();
     if (mounted) {
       setState(() {
         _items.addAll(items);
@@ -158,6 +158,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
                                 characteristic.lastValueStream.listen((value) {
                                   // 通知を受け取ったときの処理
                                   print('Received data: $value');
+                                  var tagId = value.toString();
+                                  _addItem(tagId);
                                 });
                               }
                             }
@@ -207,8 +209,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
             ),
             TextButton(
               onPressed: () async {
-                await _itemRepository.deleteItem(
-                    'U2m7Wvq2I6MTawagyrUgKlKzWzo1', item.tagId);
+                await _itemRepository.deleteItem(uid, item.tagId);
                 setState(() {
                   _filteredItems.remove(item);
                   _items.remove(item);
@@ -333,7 +334,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                               onPressed: () async {
                                 // Firestoreの値を更新
                                 await _itemRepository.updateItemDetails(
-                                  'U2m7Wvq2I6MTawagyrUgKlKzWzo1', // UIDを適切に設定
+                                  uid, // UID
                                   _filteredItems[index].tagId, // 既存のtagId
                                   tagIdController.text, // 新しいtagId
                                   nameController.text,
