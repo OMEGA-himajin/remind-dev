@@ -25,6 +25,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   bool _isLogin = true;
   bool _isMainScreen = true;
+  bool _isPasswordReset = false;
   bool _isMessageDisplayed = false;
 
   Future<void> _signInWithGoogle() async {
@@ -235,12 +236,33 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         ),
         if (_isLogin)
           TextButton(
-            onPressed: _resetPassword,
+            onPressed: () => setState(() => _isPasswordReset = true),
             child: const Text('パスワードをリセット'),
           ),
         TextButton(
           onPressed: () => setState(() => _isMainScreen = true),
           child: const Text('戻る'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordResetScreen() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        TextField(
+          controller: _emailController,
+          decoration: const InputDecoration(labelText: 'メールアドレス'),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: _resetPassword,
+          child: const Text('パスワードリセットメールを送信'),
+        ),
+        TextButton(
+          onPressed: () => setState(() => _isPasswordReset = false),
+          child: const Text('ログイン画面に戻る'),
         ),
       ],
     );
@@ -256,7 +278,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Center(
           child: SingleChildScrollView(
-            child: _isMainScreen ? _buildMainScreen() : _buildEmailAuthScreen(),
+            child: _isMainScreen
+                ? _buildMainScreen()
+                : _isPasswordReset
+                    ? _buildPasswordResetScreen()
+                    : _buildEmailAuthScreen(),
           ),
         ),
       ),
