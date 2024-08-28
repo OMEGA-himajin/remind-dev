@@ -44,7 +44,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   void _addItem(String tagId) {
     if (mounted) {
       setState(() {
-        _filteredItems.add(Item(name: 'Unknown', tagId: tagId, inBag: false));
+        _filteredItems.add(Item(name: '名前未設定', tagId: tagId, inBag: false));
       });
     }
   }
@@ -158,6 +158,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
                                 characteristic.lastValueStream.listen((value) {
                                   // 通知を受け取ったときの処理
                                   print('Received data: $value');
+                                  var tagId = value.toString();
+                                  _addItem(tagId);
                                 });
                               }
                             }
