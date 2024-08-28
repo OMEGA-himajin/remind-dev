@@ -225,6 +225,33 @@ class _ItemsScreenState extends State<ItemsScreen> {
     );
   }
 
+  void _handleNotification(List<int> value) async {
+    String tagId = value.toString();
+    List<Item> allItems = await _itemRepository.getAllItems(uid);
+    bool itemExists = allItems.any((item) => item.tagId == tagId);
+
+    if (itemExists) {
+      Item existingItem = allItems.firstWhere((item) => item.tagId == tagId);
+      existingItem.inBag = !existingItem.inBag; // inBagステータスをトグル
+      await _itemRepository.updateItemDetails(
+        uid,
+        existingItem.tagId,
+        existingItem.tagId,
+        existingItem.name,
+        existingItem.inBag,
+      );
+    } else {
+      Item newItem = Item(name: '名前未設定', tagId: tagId, inBag: true);
+      await _itemRepository.addItem(uid, newItem);
+      if (mounted) {
+        setState(() {
+          _items.add(newItem);
+          _filteredItems.add(newItem);
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
