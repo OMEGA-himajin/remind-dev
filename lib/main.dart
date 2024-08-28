@@ -41,6 +41,9 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late ThemeMode _themeMode;
 
+  // 追加：現在のテーマモードを取得するゲッター
+  ThemeMode get currentThemeMode => _themeMode;
+
   @override
   void initState() {
     super.initState();
@@ -86,16 +89,23 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _themeMode,
-      home: MyStatefulWidget(onThemeModeChanged: _changeThemeMode),
+      home: MyStatefulWidget(
+        onThemeModeChanged: _changeThemeMode,
+        currentThemeMode: _themeMode, // 追加：現在のテーマモードを渡す
+      ),
     );
   }
 }
 
 class MyStatefulWidget extends StatefulWidget {
   final Function(ThemeMode) onThemeModeChanged;
+  final ThemeMode currentThemeMode; // 追加：現在のテーマモードを受け取る
 
-  const MyStatefulWidget({Key? key, required this.onThemeModeChanged})
-      : super(key: key);
+  const MyStatefulWidget({
+    Key? key,
+    required this.onThemeModeChanged,
+    required this.currentThemeMode, // 追加
+  }) : super(key: key);
 
   @override
   State<MyStatefulWidget> createState() => _MyStatefulWidgetState();
@@ -256,13 +266,6 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   }
 
   Widget _buildCommonDrawer(BuildContext context) {
-    ThemeMode currentThemeMode = Theme.of(context).brightness == Brightness.dark
-        ? ThemeMode.dark
-        : ThemeMode.light;
-    if (Theme.of(context).platform == TargetPlatform.iOS) {
-      currentThemeMode = ThemeMode.system;
-    }
-
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -286,10 +289,12 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               children: [
                 Text('テーマ', style: TextStyle(fontSize: 16)),
                 DropdownButton<ThemeMode>(
-                  value: currentThemeMode,
+                  value: widget.currentThemeMode, // 修正：widget.currentThemeModeを使用
                   onChanged: (ThemeMode? newValue) {
                     if (newValue != null) {
                       widget.onThemeModeChanged(newValue);
+                      // 追加：状態を更新してUIを再構築
+                      setState(() {});
                     }
                   },
                   items: [
