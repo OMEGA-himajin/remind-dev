@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../model/firestore_items.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -13,11 +15,13 @@ class _ItemsScreenState extends State<ItemsScreen> {
   TextEditingController _searchController = TextEditingController();
   List<Item> _filteredItems = [];
   Map<Item, Set<int>> itemSelections = {};
-  List<BluetoothDevice> _devicesList = [];
+  List<ScanResult> scanResults = [];
   bool isConnected = false;
   final List<Item> _items = []; // 全アイテムのリスト
   final ItemRepository _itemRepository = ItemRepository(); // アイテムリポジトリのインスタンス
   final uid = main.uid; // UIDを適切に設定
+  BluetoothDevice? connectedDevice;
+  BluetoothCharacteristic? targetCharacteristic;
 
   @override
   void dispose() {
@@ -38,6 +42,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   @override
   void initState() {
     super.initState();
+    startScan();
     _searchController.addListener(_filterItems);
     _filteredItems = List.from(_items); // 初期状態では全アイテムを表示
     _getItems(); // アイテムを取得するメソッドを呼び出す
@@ -78,13 +83,72 @@ class _ItemsScreenState extends State<ItemsScreen> {
     print(items);
   }
 
-  void _startScan() {
-    FlutterBluePlus.startScan(timeout: const Duration(seconds: 4));
+  void startScan() {
+    FlutterBluePlus.startScan(timeout: const Duration(seconds: 1));
+
     FlutterBluePlus.scanResults.listen((results) {
       setState(() {
-        _devicesList = results.map((r) => r.device).toList();
+        scanResults = results;
       });
     });
+  }
+
+  void connectToDevice(BluetoothDevice device) async {
+    try {
+      await device.connect();
+      setState(() {
+        connectedDevice = device;
+        isConnected = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Connected to ${device.name}')),
+      );
+      discoverServices(device);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to connect: $e')),
+      );
+    }
+  }
+
+  void discoverServices(BluetoothDevice device) async {
+    List<BluetoothService> services = await device.discoverServices();
+    for (BluetoothService service in services) {
+      print('Discovered service: ${service.uuid}');
+      for (BluetoothCharacteristic characteristic in service.characteristics) {
+        print('Discovered characteristic: ${characteristic.uuid}');
+        if (characteristic.uuid.toString() ==
+            "c6f6bb69-2b85-47fb-993b-584440b6a785") {
+          setState(() {
+            targetCharacteristic = characteristic;
+          });
+          if (characteristic.properties.notify) {
+            try {
+              await characteristic.setNotifyValue(true);
+              final subscription =
+                  characteristic.onValueReceived.listen((value) {
+                String _value = String.fromCharCodes(value);
+                _handleNotification(_value);
+                print('Received data: $_value');
+              });
+              device.cancelWhenDisconnected(subscription);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Notify enabled for characteristic')),
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to set notify: $e')),
+              );
+            }
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Characteristic does not support notify')),
+            );
+          }
+          break;
+        }
+      }
+    }
   }
 
   void _showBluetoothPopup() async {
@@ -95,16 +159,16 @@ class _ItemsScreenState extends State<ItemsScreen> {
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Bluetoothがオフです'),
-            content: Column(
+            content: const Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.bluetooth_disabled,
                   size: 100,
                   color: Colors.grey,
                 ),
-                const SizedBox(height: 16),
-                const Text('Bluetoothをオンにしてください...'),
+                SizedBox(height: 16),
+                Text('Bluetoothをオンにしてください...'),
               ],
             ),
             actions: [
@@ -112,14 +176,14 @@ class _ItemsScreenState extends State<ItemsScreen> {
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
-                child: const Text('Close'),
+                child: const Text('閉じる'),
               ),
             ],
           );
         },
       );
     } else {
-      _startScan();
+      startScan();
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -128,52 +192,17 @@ class _ItemsScreenState extends State<ItemsScreen> {
             content: SizedBox(
               width: double.maxFinite,
               child: ListView.builder(
-                itemCount: _devicesList.length,
+                itemCount: scanResults.length,
                 itemBuilder: (context, index) {
+                  final result = scanResults[index];
                   return ListTile(
-                    title: Text(_devicesList[index].name),
-                    subtitle: Text(_devicesList[index].id.toString()),
+                    title: Text(result.device.name.isEmpty
+                        ? '不明なデバイス'
+                        : result.device.name),
+                    subtitle: Text(result.device.id.toString()),
                     trailing: ElevatedButton(
-                      onPressed: () async {
-                        await _devicesList[index].connect();
-                        setState(() {
-                          isConnected = true;
-                        });
-                        // サービスとキャラクタリスティックのUUIDを指定
-                        final serviceUuid =
-                            Guid('5ccc9918-c8a9-4f09-8c88-671375b3cf75');
-                        final characteristicUuid =
-                            Guid('c6f6bb69-2b85-47fb-993b-584440b6a785');
-
-                        // サービスを取得
-                        List<BluetoothService> services =
-                            await _devicesList[index].discoverServices();
-                        for (BluetoothService service in services) {
-                          if (service.uuid == serviceUuid) {
-                            for (BluetoothCharacteristic characteristic
-                                in service.characteristics) {
-                              if (characteristic.uuid == characteristicUuid) {
-                                // 通知をオンにする
-                                await characteristic.setNotifyValue(true);
-                                characteristic.lastValueStream.listen((value) {
-                                  // 通知を受け取ったときの処理
-                                  print('Received data: $value');
-                                  var tagId = value.toString();
-                                  _addItem(tagId);
-                                });
-                              }
-                            }
-                          }
-                        }
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content:
-                                  Text('${_devicesList[index].name}に接続しました')),
-                        );
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Connect'),
+                      onPressed: () => connectToDevice(result.device),
+                      child: const Text('接続'),
                     ),
                   );
                 },
@@ -184,7 +213,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
-                child: const Text('Close'),
+                child: const Text('閉じる'),
               ),
             ],
           );
@@ -225,8 +254,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
     );
   }
 
-  void _handleNotification(List<int> value) async {
-    String tagId = value.toString();
+  void _handleNotification(String tagId) async {
     List<Item> allItems = await _itemRepository.getAllItems(uid);
     bool itemExists = allItems.any((item) => item.tagId == tagId);
 
