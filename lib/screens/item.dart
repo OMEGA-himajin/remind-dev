@@ -99,6 +99,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
       setState(() {
         connectedDevice = device;
         isConnected = true;
+        Navigator.of(context).pop();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Connected to ${device.name}')),
@@ -122,9 +123,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
       // アイテムが存在する場合、inBagをtrueに更新
       await _itemRepository.updateItemDetails(
           uid, tagId, tagId, existingItem.name, true);
-      setState(() {
-        // _filteredItems.add(newItem);
-      });
+      Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (BuildContext context) () main._getAppBar(3)));
     } else {
       // アイテムが存在しない場合、新しいアイテムを追加
       Item newItem = Item(name: '名前未設定', tagId: tagId, inBag: true);
