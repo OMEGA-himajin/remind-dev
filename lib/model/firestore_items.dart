@@ -43,22 +43,6 @@ class ItemRepository {
     return items;
   }
 
-  /// `uid`と`tagId`に基づいてアイテムの情報を更新するメソッド。
-  Future<void> updateItemDetails(String uid, String oldTagId, String newTagId,
-      String name, bool inBag) async {
-    DocumentReference documentReference =
-        _firestore.collection(uid).doc('items');
-    // 新しいフィールド名で更新
-    await documentReference.update({
-      '$newTagId.name': name,
-      '$newTagId.inBag': inBag,
-    });
-    // 古いフィールドを削除
-    if (oldTagId != newTagId) {
-      await documentReference.update({oldTagId: FieldValue.delete()});
-    }
-  }
-
   /// 新しいアイテムを追加するメソッド。
   Future<void> addItem(String uid, Item item) async {
     DocumentReference documentReference =
@@ -73,5 +57,45 @@ class ItemRepository {
     DocumentReference documentReference =
         _firestore.collection(uid).doc('items');
     await documentReference.update({tagId: FieldValue.delete()});
+  }
+
+  Future<void> toggleOrAddItem(String uid, String tagId) async {
+    // 全てのアイテムを取得
+    List<Item> items = await getAllItems(uid);
+
+    // tagIdに一致するアイテムを探す
+    Item? existingItem = items.firstWhere(
+      (item) => item.tagId == tagId,
+      orElse: () => Item(tagId: '', name: ''), // 一致するアイテムがない場合のダミーアイテム
+    );
+
+    if (existingItem.tagId.isNotEmpty) {
+      // アイテムが存在する場合、inBagをトグル
+      bool newInBagState = !existingItem.inBag;
+      await updateItemDetails(
+          uid, tagId, tagId, existingItem.name, newInBagState);
+    } else {
+      // アイテムが存在しない場合、新しいアイテムを追加
+      Item newItem = Item(tagId: tagId, name: '名前未設定', inBag: true);
+      await addItem(uid, newItem);
+    }
+  }
+
+  // updateItemDetails メソッドを修正
+  Future<void> updateItemDetails(String uid, String oldTagId, String newTagId,
+      String name, bool inBag) async {
+    DocumentReference documentReference =
+        _firestore.collection(uid).doc('items');
+    // 新しいフィールド名で更新
+    await documentReference.update({
+      '$newTagId': {
+        'name': name,
+        'inBag': inBag,
+      },
+    });
+    // 古いフィールドを削除（タグIDが変更された場合のみ）
+    if (oldTagId != newTagId) {
+      await documentReference.update({oldTagId: FieldValue.delete()});
+    }
   }
 }

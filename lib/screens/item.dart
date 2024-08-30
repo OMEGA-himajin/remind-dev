@@ -111,6 +111,30 @@ class _ItemsScreenState extends State<ItemsScreen> {
     }
   }
 
+  Future<void> _checkAndUpdateItem(String tagId) async {
+    List<Item> items = await _itemRepository.getAllItems(uid);
+    Item? existingItem = items.firstWhere(
+      (item) => item.tagId == tagId,
+      orElse: () => Item(tagId: '', name: ''), // 一致するアイテムがない場合のダミーアイテム
+    );
+
+    if (existingItem.tagId.isNotEmpty) {
+      // アイテムが存在する場合、inBagをtrueに更新
+      await _itemRepository.updateItemDetails(
+          uid, tagId, tagId, existingItem.name, true);
+      setState(() {
+        _filteredItems.
+      });
+    } else {
+      // アイテムが存在しない場合、新しいアイテムを追加
+      Item newItem = Item(name: '名前未設定', tagId: tagId, inBag: true);
+      await _itemRepository.addItem(uid, newItem);
+      setState(() {
+        _filteredItems.add(newItem);
+      });
+    }
+  }
+
   void discoverServices(BluetoothDevice device) async {
     List<BluetoothService> services = await device.discoverServices();
     for (BluetoothService service in services) {
@@ -128,7 +152,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
               final subscription =
                   characteristic.onValueReceived.listen((value) {
                 String _value = String.fromCharCodes(value);
-                _handleNotification(_value);
+                _checkAndUpdateItem(_value);
                 print('Received data: $_value');
               });
               device.cancelWhenDisconnected(subscription);
@@ -252,32 +276,6 @@ class _ItemsScreenState extends State<ItemsScreen> {
         );
       },
     );
-  }
-
-  void _handleNotification(String tagId) async {
-    List<Item> allItems = await _itemRepository.getAllItems(uid);
-    bool itemExists = allItems.any((item) => item.tagId == tagId);
-
-    if (itemExists) {
-      Item existingItem = allItems.firstWhere((item) => item.tagId == tagId);
-      existingItem.inBag = !existingItem.inBag; // inBagステータスをトグル
-      await _itemRepository.updateItemDetails(
-        uid,
-        existingItem.tagId,
-        existingItem.tagId,
-        existingItem.name,
-        existingItem.inBag,
-      );
-    } else {
-      Item newItem = Item(name: '名前未設定', tagId: tagId, inBag: true);
-      await _itemRepository.addItem(uid, newItem);
-      if (mounted) {
-        setState(() {
-          _items.add(newItem);
-          _filteredItems.add(newItem);
-        });
-      }
-    }
   }
 
   @override
