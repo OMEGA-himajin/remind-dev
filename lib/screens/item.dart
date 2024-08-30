@@ -123,7 +123,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
       await _itemRepository.updateItemDetails(
           uid, tagId, tagId, existingItem.name, true);
       setState(() {
-        _filteredItems.
+        // _filteredItems.add(newItem);
       });
     } else {
       // アイテムが存在しない場合、新しいアイテムを追加
