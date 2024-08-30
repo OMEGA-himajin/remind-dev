@@ -44,17 +44,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     });
   }
 
-  Future<void> _updateDataIfNeeded() async {
-    if (DateTime.now().difference(lastUpdateTime) > Duration(minutes: 5)) {
-      List<Map<String, dynamic>> newEvents =
-          await FirestoreSchedules.getEvents();
-      setState(() {
-        allEvents = newEvents;
-        lastUpdateTime = DateTime.now();
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -111,9 +100,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   daysOfWeekHeight: 40,
                                   headerStyle: HeaderStyle(
                                     formatButtonVisible: false,
-                                    titleCentered: true,
+                                    titleCentered: false, // Remove title centering
                                     titleTextStyle: textTheme.titleLarge!
-                                        .copyWith(color: primaryColor),
+                                        .copyWith(color: theme.brightness == Brightness.dark ? Colors.white : Colors.black), // Set title text color based on theme brightness
                                   ),
                                 );
                               },
