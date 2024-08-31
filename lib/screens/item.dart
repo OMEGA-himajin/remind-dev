@@ -123,8 +123,6 @@ class _ItemsScreenState extends State<ItemsScreen> {
       // アイテムが存在する場合、inBagをtrueに更新
       await _itemRepository.updateItemDetails(
           uid, tagId, tagId, existingItem.name, true);
-      Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (BuildContext context) () main._getAppBar(3)));
     } else {
       // アイテムが存在しない場合、新しいアイテムを追加
       Item newItem = Item(name: '名前未設定', tagId: tagId, inBag: true);
